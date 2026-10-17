@@ -1,0 +1,16 @@
+"sample","method","estimate","delta_star_lower","delta_star_upper"
+"analytic cohort","Unadjusted DiD",0.0598240469208209,-0.15772438504986,0.277372478891502
+"analytic cohort","Parametric DR-DiD",0.227597886776066,-0.0191078512337667,0.474303624785899
+"analytic cohort","Lasso DR-DiD (cross-fit)",0.204874000833668,-0.036843371763976,0.446591373431312
+"analytic cohort","Boosted DR-DiD (cross-fit)",0.234059524611759,0.00161568519337876,0.46650336403014
+"analytic cohort","SIMEX-lasso, reliability 0.9 (M = 0)",0.215333555928875,-0.0186603405915316,0.449327452449281
+"analytic cohort","SIMEX-lasso, reliability 0.8 (M = 0)",0.224541673050737,-0.0101711616230101,0.459254507724485
+"analytic cohort","SIMEX-lasso, reliability 0.7 (M = 0)",0.234662488137282,-0.00155541822428371,0.470880394498848
+"analytic cohort","SIMEX-lasso, reliability 0.6 (M = 0)",0.245696001188509,0.00684068298670656,0.484551319390312
+"attending in 2015 (conditions on a post-baseline variable)","Unadjusted DiD",-0.161925632687685,-0.367957702148937,0.0441064367735656
+"attending in 2015 (conditions on a post-baseline variable)","Parametric DR-DiD",0.107040419842556,-0.128470942267654,0.342551781952766
+"attending in 2015 (conditions on a post-baseline variable)","Lasso DR-DiD (cross-fit)",0.128485530256064,-0.0903850437791438,0.347356104291271
+"attending in 2015 (conditions on a post-baseline variable)","SIMEX-lasso, reliability 0.9 (M = 0)",0.142796214687567,-0.075263634679098,0.360856064054232
+"attending in 2015 (conditions on a post-baseline variable)","SIMEX-lasso, reliability 0.8 (M = 0)",0.152545502267278,-0.0675144240274183,0.372605428561975
+"attending in 2015 (conditions on a post-baseline variable)","SIMEX-lasso, reliability 0.7 (M = 0)",0.163367010463497,-0.0595608646335083,0.386294885560502
+"attending in 2015 (conditions on a post-baseline variable)","SIMEX-lasso, reliability 0.6 (M = 0)",0.175260739276222,-0.0516249158543262,0.40214639440677

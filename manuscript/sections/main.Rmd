@@ -1,0 +1,776 @@
+# Introduction {#sec:intro}
+
+```{r intro-text, include=FALSE}
+rcP0 <- ex$followup$rc$paired
+ps0 <- rcP0[rcP0$study == "rc_dgp" & rcP0$contrast == "RC - production SIMEX-lasso", ]
+pl0 <- rcP0[rcP0$study == "rc_dgp" & rcP0$contrast == "RC - latent", ]
+stopifnot(nrow(ps0) == 12, all(ps0$abs_err_diff < 0), all(abs(pl0$est_diff) < 2 * pl0$est_diff_mcse))
+a3l <- ex$amend3$long
+g3 <- \(mt) a3l$value[a3l$study == "shape" & grepl("^gauss", a3l$cell) & a3l$learner == "glmnet" &
+                      a3l$method == "rc_fold" & a3l$metric == mt]
+rng0 <- \(x, d = 3, s = 1) paste0(fmt(s * min(x), d), "--", fmt(s * max(x), d))
+P1i <- ex$popmap$map[ex$popmap$map$ratio == 1, ]
+hi_i <- P1i[P1i$r >= 0.9 & P1i$sl >= 0.5, ]
+c6i <- "x_classical__r0.60__nonlinear__N5000"; xnci <- "x_nc__large__nonlinear__N5000"
+```
+
+Evaluations of social programmes in low- and middle-income countries rely heavily on household panel surveys. A common design compares the change in an outcome among households that joined a programme with the change among households that did not. This is difference-in-differences (DiD). When the change that households would have seen without the programme depends on their characteristics, the comparison is made among households with the same characteristics. The identifying assumption is then conditional parallel trends. Without treatment, treated and untreated units with the same covariates would have had the same expected change in outcome. Most of the covariates that make this assumption plausible, such as assets, landholding, schooling and household composition, are reported by respondents, and so are programme receipt and outcomes.
+
+For two periods, the standard estimator is now the doubly robust DiD estimator of \citet{santanna2020doubly}, DR-DiD for short. It combines a model of the probability of treatment given the covariates, the propensity score, with a model of the untreated change in outcome given the covariates, and it is consistent if either model is correct. The two models are called nuisance functions, because the estimate needs them but they are not of interest in themselves. In current practice they are fitted by machine learning with cross-fitting, in which each nuisance function is fitted on part of the sample and evaluated on the rest, so that overfitting does not bias the estimate \citep{chernozhukov2018double, chang2020double}. Flexible nuisance estimation answers a modelling question, how to adjust for the covariates without committing to a functional form. Measurement error raises a different question, whether the covariates that the estimator conditions on are the ones that the identifying assumption is about. No learner answers the second question, however flexible it is.
+
+Adjusting for a confounder measured with error leaves part of its confounding uncontrolled, which is known as residual confounding. \citet{mccaffrey2013inverse} show this for weighting and \citet{lockwood2016matching} for matching, and \citet{battistin2014treatment} give a small-error expansion of the resulting bias of the average treatment effect on the treated (ATT). Corrections exist for several estimators and targets. They include propensity-score calibration with validation data \citep{sturmer2005adjusting}, multiple imputation \citep{webbvargas2017imputation}, estimators of causal effect measures that correct for error in confounders \citep{shu2018estimation}, the conditional mean of a latent confounder given its indicators, the other covariates and treatment \citep{nguyen2020propensity}, and a Bayesian correction for error that differs by treatment group \citep{hong2017bayesian}. For treatment misclassification in DiD, \citet{negi2025misclassified} analyse one-sided differential error and \citet{denteh2022misclassification} derive bias formulas and bounds.
+
+The size of the error in a covariate is often summarised by its reliability, the share of the variance of the reported value that comes from the true value. Two standard corrections need only this reliability, or equivalently the variance of the error. Regression calibration \citep{carroll2006measurement} replaces the reported covariate by a prediction of the true covariate from the observed data. Simulation-extrapolation, or SIMEX \citep{cook1994simulation, stefanski1995simulation}, adds further simulated error in steps, records how the estimate changes as the error grows, and extrapolates that trend back to the point of no error. \citet{lockwood2015simulation} apply SIMEX to regression, weighting and doubly robust estimators of means and treatment effects, with the error variance treated as known and bootstrap standard errors. \citet{lenis2017doubly} extend SIMEX to a doubly robust estimator of the average treatment effect under mean-reverting error with validation data. In double machine learning, \citet{xu2024causal} apply regression calibration fitted in an external validation study and add the estimation of the calibration model to the variance. Published comparisons of the two corrections disagree \citep{nab2021sensitivity, sedki2026methods}, and Section \ref{sec:discussion} returns to them. The asymptotic theory of SIMEX covers parametric \citep{carroll1996asymptotics} and kernel-based semiparametric models \citep{apanasovich2009simex}, and \citet{chen2026generalized} let the order of the extrapolating polynomial and the density of the noise grid grow so that the approximation error vanishes. To our knowledge, no study cross-fits SIMEX, and none asks when the target of either correction is the DiD ATT.
+
+We study both corrections in cross-fitted DR-DiD for the two-period panel ATT and make four contributions.
+
+1. Section \ref{sec:error} characterises the target of the cross-fitted estimator, the quantity to which it converges, under outcome error, classical covariate error, covariate error that depends on treatment, and treatment misclassification. The residual-confounding channel is known, and we state it for the untreated trend. The misclassification results relate to \citet{lewbel2007estimation} and \citet{mahajan2006identification}.
+2. Both corrections need the variance of the error. Given a reliability $r$, it is $(1-r)$ times the variance of the reported covariate, which is estimated from the same data. Section \ref{sec:method} estimates it on the training folds, like the nuisance functions. It then derives the influence function of each corrected estimator, the term whose sample average gives the estimator's error to first order and whose variance gives its standard error. The influence function includes a first-step adjustment \citep{newey1994asymptotic}, the contribution of the estimated error variance. Theorem \ref{thm:simexfold} covers SIMEX, for which the adjustment is computed without differentiating any learner, by the score-function method \citep{glynn1990likelihood}. Proposition \ref{prop:rcfold} covers regression calibration. The nearest result is that of \citet{xu2024causal}, whose calibration model comes from an external study.
+3. SIMEX extrapolates with a quadratic, so its error is the distance between that quadratic and the true curve at the point of no error. Under a bound $M$ on the third derivative of the curve, a smoothness restriction like that of \citet{rambachan2023more}, the worst-case extrapolation error on a fixed grid follows from the Peano kernel, the standard integral form of the error of polynomial approximation. Section \ref{sec:biasint} adds it to the interval, which gives a bias-aware interval \citep{armstrong2018optimal, armstrong2020simple}.
+4. Section \ref{sec:map} shows when the target of each correction is the ATT. Regression calibration predicts the true covariate by its best linear predictor. The best predictor is the posterior mean, the conditional mean of the true covariate given the observed data, and the two agree when the true covariate is Gaussian within each treatment group. Regression calibration is then exact. Otherwise, with a trend that is linear in the covariate, its bias is the gap between the posterior mean and the best linear predictor in the control group, evaluated where the treated units lie (Corollary \ref{cor:rcbias}). An identity due to \citet{brown1971admissible} gives the mean square of that gap from the reported covariate alone, so the gap can be checked before any outcome is modelled. A population map computes the targets of both corrections exactly, without sampling, over the skewness of the covariate, its reliability and the shape of the trend.
+
+The evidence comes from a 64-cell simulation fixed before it ran, five dated amendments that compare the two corrections (Section \ref{sec:sim}), and an application to the Bangladesh Integrated Household Survey (BIHS, Section \ref{sec:app}).
+
+In the original study, SIMEX applied to lasso DR-DiD (SIMEX-lasso) reduced the bias of lasso DR-DiD from `r v(c6i, "dml_lasso")` to `r v(c6i, "simex_lasso")` at reliability 0.6 with $n=5{,}000$, and increased it from `r v(xnci, "dml_lasso")` to `r v(xnci, "simex_lasso")` when the error depended on treatment. Given the same information, regression calibration came within two paired Monte Carlo standard errors (MCSE) of the estimator on the true covariates in all twelve cells of that study with classical error, and it had a smaller mean absolute error than SIMEX-lasso in all twelve. In Gaussian designs the first-step adjustment carried `r rng0(g3("calibration_var_share"), 0, 100)`% of the variance of regression calibration but at most `r fmt(simex_share("gauss"), 1)`% of that of SIMEX (at most `r fmt(simex_share("all"), 1)`% in any design). Including it raised the coverage of regression calibration's intervals from `r rng0(g3("cover_att_fixedse"))` to `r rng0(g3("cover_att"))`. Neither correction dominates in the population map. Regression calibration is exact with Gaussian covariates, and its target is closer to the ATT in every design with a linear trend and reliability of 0.8 or below. SIMEX's target is closer in `r sum(hi_i$better == "SIMEX")` of the `r nrow(hi_i)` designs with skewness of at least `r fmt(unique(P1i$skewness[P1i$sl == 0.5]), 2)` and reliability of 0.9 or above. In a simulation of one such design, the learner decided the ranking. SIMEX was more accurate with a lasso on spline expansions of the covariates, and regression calibration with a lasso on the covariates and their squares. In the BIHS, both corrections raise an adjusted contrast in schooling as the assumed reliability of assets and land falls. The estimated gap is large for log land, whose point mass at zero is also incompatible with classical error. The design there does not identify a policy effect.
+
+Section \ref{sec:setup} sets up the problem, Section \ref{sec:sim} is organised by the questions the simulations answer, and Section \ref{sec:discussion} turns the results into steps for applied work. Appendices \ref{app:foundations}--\ref{app:repro} give the proofs, the simulation designs, further results, details of the application, the relation to prior work and the protocol deviations.
+
+# Setup and measurement mechanisms {#sec:setup}
+
+Units $i=1,\dots,n$ are observed in periods 0 and 1. $A\in\{0,1\}$ indicates treatment between the periods, $Y^{a,t}$ is the potential outcome in period $t$ under treatment path $a$, and $D=Y_1-Y_0$ is the observed change. Covariates $X=(W,V)$ are measured before treatment, with $W$ error-prone and $V$ exact. The target is the ATT, $\tau=E[Y^{1,1}-Y^{0,1}\mid A=1]$. In the simulations we also use the sample ATT, the average of $Y^{1,1}-Y^{0,1}$ over the treated units of a sample \citep{imbens2004nonparametric}. Write $e(x)=P(A=1\mid X=x)$, $\pi=P(A=1)$ and $\mu(x)=E[D\mid X=x,A=0]$.
+
+\begin{assumption}[Conditional parallel trends]\label{ass:cpt}
+$E[Y^{0,1}-Y^{0,0}\mid X,A=1]=E[Y^{0,1}-Y^{0,0}\mid X,A=0]$.
+\end{assumption}
+\begin{assumption}[No anticipation]\label{ass:noanticipation}
+$Y^{1,0}=Y^{0,0}$.
+\end{assumption}
+\begin{assumption}[Overlap]\label{ass:overlap}
+$e(X)\le1-\delta$ for some $\delta>0$, and $\pi>0$.
+\end{assumption}
+
+Under these assumptions $\tau=E[\theta(X)\mid A=1]$ with $\theta(x)=E[D\mid X=x,A=1]-\mu(x)$ (Appendix \ref{app:ident}). For a candidate propensity $g$ and a candidate untreated trend $m$, the DR-DiD functional of \citet{santanna2020doubly} is
+$$
+T_P(g,m)=E\Big[\frac{A}{\pi}\{D-m(X)\}\Big]-E\Big[\frac{(1-A)g(X)/\{1-g(X)\}}{E[(1-A)g/(1-g)]}\{D-m(X)\}\Big].
+$$
+The first term averages the treated units' changes net of the candidate trend. The second does the same for the controls, weighted by the propensity odds $g/(1-g)$ so that they resemble the treated, with weights normalised to have mean one (Hajek weights). The functional equals $\tau$ when $g=e$ or $m=\mu$, which is double robustness, and its error is bounded by the product of the errors of $g$ and $m$ (Appendix \ref{app:remainder}). A cross-fitted estimator replaces $g$ and $m$ by learners fitted on the training folds and evaluates the empirical version of $T_P$ on the held-out fold (Appendix \ref{app:crossfit}).
+
+Table \ref{tab:mechanisms} lists four measurement mechanisms and what a correction for each needs. Every correction needs information about the error distribution that the data alone do not provide. For covariate error this is an error covariance or a reliability, and for treatment error it is the misclassification probabilities. Such information may be known, estimated from the same data, estimated from an independent validation or replication sample \citep{carroll2006measurement}, or posited as a sensitivity parameter, and each case leads to a different variance (Section \ref{sec:method}).
+
+```{r mechanisms}
+mech <- data.frame(
+  Mechanism = c("Outcome error", "Classical covariate error", "Covariate error differential with respect to treatment", "Treatment misclassification"),
+  Model = c("$D^*=D+U$ or $(1+\\gamma)D+U$, $E[U\\mid A,X]=0$", "$W^*=W+U$, $U\\sim N(0,\\Sigma)$ independent of $(W,V,A,D)$",
+            "$W^*=W+\\mathrm{sd}(W)(\\delta_aA+\\epsilon)$", "$P(B=1\\mid A,X,\\cdot)=\\alpha_0(1-A)+(1-\\alpha_1)A$"),
+  `Effect on the target` = c("None for a shift, scaling by $1+\\gamma$ for mean-reverting error", "Residual confounding bias $b$, eq. (B.2)",
+                             "Bias, with both corrections misspecified", "Attenuation by propensity-dependent weights, eq. (D.4)"),
+  `Correction and information` = c("None needed", "Regression calibration or SIMEX, with the error covariance known, estimated or bounded (Section \\ref{sec:method})",
+                                   "Requires a model of the dependence (not implemented)", "Known or validated misclassification probabilities"),
+  check.names = FALSE)
+kbl2(mech, "Measurement mechanisms, their effect on the DR-DiD target, and the information a correction needs.", escape = FALSE) |>
+  column_spec(1, width = "2.6cm") |> column_spec(2, width = "4.4cm") |> column_spec(3, width = "4.0cm") |> column_spec(4, width = "3.6cm")
+```
+
+Figure \ref{fig:dags} shows the causal structures behind the assumptions. Panel (a) is the classical case. The reported covariate is a noisy child of the true one, so adjusting for $W^*$ leaves the path through $W$ open. In panel (b), the reporting error depends on treatment, and the reported covariate is a descendant of $A$. In the taxonomy of \citet{hernan2009invited} this error is differential with respect to treatment, and \citet{hong2017bayesian} study it in propensity-score analysis. The application of Section \ref{sec:app} has its own structure, in which programme receipt is recorded together with an outcome-related variable (Figure \ref{fig:appdag}).
+
+```{=latex}
+\begin{figure}[tb]
+\centering
+\tikzset{v/.style={draw, circle, minimum size=8mm, inner sep=0.5pt, font=\small, line width=0.5pt},
+         lat/.style={v, fill=gray!25},
+         obs/.style={v, fill=white},
+         arr/.style={-{Stealth[length=2.2mm, width=1.7mm]}, line width=0.6pt, shorten >=0.6pt, shorten <=0.6pt}}
+\begin{minipage}[t]{0.46\textwidth}\centering
+{\footnotesize (a) Classical reporting error}\\[2mm]
+\begin{tikzpicture}[x=1cm, y=1cm]
+\node[obs] (V) at (0, 2.5) {$V$};
+\node[lat] (W) at (0, 1.25) {$W$};
+\node[obs] (A) at (2, 2.5) {$A$};
+\node[lat] (T) at (2, 1.25) {$D^0$};
+\node[obs] (D) at (4, 1.875) {$D$};
+\node[obs] (Ws) at (0, 0) {$W^*$};
+\node[lat] (U) at (2, 0) {$U$};
+\draw[arr] (V) -- (A); \draw[arr] (V) -- (T); \draw[arr] (W) -- (A); \draw[arr] (W) -- (T);
+\draw[arr] (A) -- (D); \draw[arr] (T) -- (D); \draw[arr] (W) -- (Ws); \draw[arr] (U) -- (Ws);
+\end{tikzpicture}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.46\textwidth}\centering
+{\footnotesize (b) Reporting error that depends on treatment}\\[2mm]
+\begin{tikzpicture}[x=1cm, y=1cm]
+\node[lat] (W) at (0, 1.25) {$W$};
+\node[obs] (A) at (2, 1.25) {$A$};
+\node[obs] (D) at (4, 1.25) {$D$};
+\node[obs] (Ws) at (0, 0) {$W^*$};
+\node[lat] (U) at (2, 0) {$U$};
+\path (0, 2.5) -- (4, 2.5);
+\draw[arr] (W) -- (A); \draw[arr] (A) -- (D); \draw[arr] (W) to[bend left=38] (D);
+\draw[arr] (W) -- (Ws); \draw[arr] (A) -- (U); \draw[arr] (U) -- (Ws);
+\end{tikzpicture}
+\end{minipage}
+\caption{Causal structures of covariate measurement error. Grey nodes are latent. $W$ is a confounder measured with error (for example household resources), $W^*$ its report, $U$ the reporting error, $V$ an exactly measured confounder (for example the community), $A$ the treatment, $D^0$ the untreated change in the outcome and $D$ the observed change. In (a) the error is independent of everything else. In (b) it depends on treatment.}\label{fig:dags}
+\end{figure}
+```
+
+## The DR-DiD target under measurement error {#sec:error}
+
+All results in this subsection concern population quantities, not estimates, and Section \ref{sec:method} turns to estimation. They compare two joint distributions, the latent law of the true variables $(D,A,X)$ and the observed law of the reported ones. At the latent law, the error of the DR-DiD functional is exactly
+$$
+T_P(g,m)-\tau=E\big[(w_e-w_g)(\mu-m)\big],\qquad w_g=\frac{(1-A)g/(1-g)}{E[(1-A)g/(1-g)]}, \tag{1}
+$$
+the average product of a weighting error and an error in the untreated trend (Appendix \ref{app:remainder}). This identity organises the results below.
+
+*Outcome error.* If $D^*=D+U$ with $E[U\mid A,X]=0$, then $\mu$ and $\theta$ are unchanged, so every consistent DR-DiD estimator still targets $\tau$. The variance changes, and not always upwards, because $U$ may be correlated with the outcome's own noise (Appendix \ref{app:outcome}). Mean-reverting error, $D^*=(1+\gamma)D+U$ with $-1<\gamma<0$, in which the error is negatively correlated with the true value \citep{bound1991extent, bound2001measurement}, scales the target to $(1+\gamma)\tau$ for every consistent estimator. A shift $D^*=D+\rho\phi(X)$ that depends on covariates changes $\mu$ but not $\theta$, so the doubly robust estimator remains consistent if either nuisance is correct for the shifted outcome. These results are standard in content, and we state them because the simulation includes these designs (Appendix \ref{app:outcome} gives the bias and variance terms).
+
+*Covariate error.* Let $Z=(W^*,V)$ denote the observed covariates, with $W^*=W+U$. Assume that the error carries no information about the outcome once the true covariates and treatment are known, $E[\eta\mid X,A,U]=0$, where $\eta=D-\mu(X)-A\theta(X)$ is the outcome residual. Write $e^*$ and $m_0^*$ for the propensity and the untreated trend given $Z$. Applying (1) at the observed law gives
+$$
+T_{P^*}(g,m)-\tau=b+E\big[(w_{e^*}-w_g)(m_0^*-m)\big], \tag{2}
+$$
+where
+$$
+b=E\big\{E[\mu(X)\mid Z,A=1]-E[\mu(X)\mid Z,A=0]\,\big|\,A=1\big\}.
+$$
+The second term is what double robustness controls. The first, $b$, is residual confounding of the untreated trend by the part of $W$ that $W^*$ does not reveal (Appendix \ref{app:bias}). It vanishes if the trend does not depend on $W$ or if treatment is independent of $W$ given $Z$. It is not removed by a better learner, because it is a property of the observed law. As the error vanishes, $b\to0$ under overlap, even when $\mu$ is not continuous (Appendix \ref{app:continuity}). As the error variance diverges, $b$ tends to the bias of adjusting for $V$ alone (Appendix \ref{app:largenoise}). When the covariates are Gaussian and treatment follows a probit model, $b$ has a closed form whose sign is known for a single error-prone covariate but not for several, because imbalances of opposite sign can cancel (Appendix \ref{app:gaussian}).
+
+The bias also changes at an exact rate as Gaussian noise is added. Suppose the error is Gaussian with covariance $S$. Let $q(\lambda)$ be the DR-DiD functional when the error covariance is $(1+\lambda)S$, so that $q(-1)=\tau$ is its value on the true covariates and $q(0)$ its value on the reported ones. Let $m_\lambda$ and $e_\lambda$ be the untreated trend and the propensity given the covariates at that noise level. Then, for every $\lambda\ge-1$,
+$$
+q'(\lambda)=E\big[\nabla_wm_\lambda^\top S\,\nabla_w\mathrm{logit}\,e_\lambda\mid A=1\big] \tag{3}
+$$
+(Appendix \ref{app:noiseflow}). The integrand is positive where the trend and the log odds of treatment increase together in $W$. At $\lambda=-1$, (3) is the small-error expansion of \citet[Prop.~2]{battistin2014treatment}. SIMEX estimates $q$ at noise levels $\lambda\ge0$ and extrapolates it to $\lambda=-1$ (Section \ref{sec:simexmethod}).
+
+*What the observed law identifies.* Suppose the error covariance is $\rho S$, with $S$ known and the scale $\rho\in[0,1]$ unknown, so that only an upper bound on the error is assumed. The ATT is then identified only up to a set, the values of the ATT implied by the scales compatible with the joint law of $(W^*,D,A,V)$. Appendix \ref{app:idset} shows that this set is an interval and is sharp, meaning that no smaller set is compatible with the data and the assumptions, and Appendices \ref{app:binary}–\ref{app:certificate} treat binary outcomes and observable bounds on $\rho$. The range of a quadratic fitted to SIMEX output over $[-1,0]$ equals this set only when the quadratic is exact and every scale is compatible (Remark \ref{rem:notsharp}). Section \ref{sec:method} therefore reports bias-aware intervals, not identified sets.
+
+*Treatment misclassification.* Let $\alpha_0$ be the probability that an untreated unit reports treatment and $\alpha_1$ the probability that a treated unit reports none. Under non-differential reporting with $\kappa_\alpha=1-\alpha_0-\alpha_1>0$, a DR-DiD estimator that uses the reported treatment targets $E[\theta(X)\varpi(X)\mid A=1]$ with weights $0<\varpi\le1$ that depend on the propensity (Appendix \ref{app:mc-ident}). With effects of one sign this attenuates the ATT. With effects of mixed sign it can reverse it. The correction with known misclassification probabilities used in our simulation is doubly robust in the propensity and the untreated trend of the true treatment, $(e,\mu)$. In the nuisances of the reported treatment, which the implementation estimates, it is only locally orthogonal, that is, insensitive to their errors only to first order (Appendix \ref{app:mc-latent}). When the probabilities come from a validation sample of size $M_v$, the variance gains a term of order $1/M_v$ (Appendix \ref{app:mc-validation}). Corrections with known or validated probabilities go back to \citet{lewbel2007estimation} and \citet{mahajan2006identification}. Treatment error is supporting material in this paper, and we did not implement estimated probabilities or differential reporting.
+
+# Corrections with cross-fitted calibration {#sec:method}
+
+Section \ref{sec:error} shows that classical covariate error leaves a bias $b$ that no learner removes. Both corrections studied here aim to remove it, and both use one piece of information, the error covariance $S$ of the error-prone covariates. Under classical error, $S$ is set by the reliability $r=\mathrm{Var}(W)/\mathrm{Var}(W^*)$ of each covariate through $s=(1-r)\mathrm{Var}(W^*)$ \citep{carroll2006measurement}. In a cross-fitted estimator, $\mathrm{Var}(W^*)$ is itself estimated. We estimate it, like the other nuisances, on the rows outside each fold $k$, and write $\hat s_{-k}=(1-r)\widehat{\mathrm{Var}}_{-k}(W^*)$. We call this cross-fitted calibration. Its estimation error enters the influence function of either corrected estimator as a first-step adjustment \citep{murphy1985estimation, newey1994asymptotic}. The reliability itself is treated as known or as a sensitivity parameter.
+
+## Regression calibration within treatment groups {#sec:rcmethod}
+
+Regression calibration \citep{carroll2006measurement} replaces each error-prone covariate by an estimate of its conditional mean given the observed covariates $Z=(W^*,V)$. For the ATT the calibration must condition on treatment. \citet{lockwood2016matching} show that matching on error-prone covariates generally needs different functions of the observed covariates for treated and control units, and \citet{nguyen2020propensity} use the conditional mean of a latent confounder given its indicators, the other covariates and treatment in propensity-score analysis. We use the best linear predictor of $W$ given $Z$ within each treatment group $a$,
+$$
+h_a(Z)=Z-S_p\Sigma_a^{-1}\big(Z-E[Z\mid A=a]\big),\qquad\Sigma_a=\mathrm{Var}(Z\mid A=a),
+$$
+where $S_p$ is the diagonal matrix with $s$ on the error-prone coordinates and zeros elsewhere (Appendix \ref{app:rc-fold}). The map leaves $V$ unchanged and shrinks each reported covariate towards its group mean, after adjusting for $V$. The shrinkage is stronger when $s$ is large relative to the variance of the covariate in the group. It needs the group means and covariances of $Z$ and the error variance $s$, so it uses the same information as SIMEX. A pooled predictor would be an affine map of $Z$ and, with a learner that is linear in its inputs, would reproduce the naive estimator, the estimator that treats the reported covariates as exact (Appendix \ref{app:rc}). The calibrated covariates $h_A(Z)$ enter the same cross-fitted DR-DiD, with the same learners and folds as SIMEX.
+
+The target of regression calibration is $\tau$ when the conditional mean of the untreated trend $\mu(X)$ given $Z$ is the same function of the calibrated covariates in both groups (Appendix \ref{app:rc-fold}). Two cases satisfy this condition. In the first, $E[W\mid Z,A]$ is linear in $Z$ and $\mu$ is linear in $W$. In the second, $\mu$ is quadratic in $W$ and $\mathrm{Var}(W\mid Z,A)$ is the same in both groups and does not depend on $Z$. Section \ref{sec:gap} measures how far the first case can fail.
+
+With cross-fitted calibration, Proposition \ref{prop:rcfold} gives the influence function of the regression-calibration estimator. The first-step adjustment adds the effect of estimating the group means, the group covariances and $s$ on the training folds. It is the derivative of the target with respect to these quantities, (C.18), applied to their own influence functions. Unlike the adjustment for SIMEX below, this derivative needs the gradient of the fitted outcome regression. That gradient is exact for the parametric learner and for the lasso with polynomial dictionaries used here, and is not available for trees. The nearest result in double machine learning is that of \citet{xu2024causal}, who add the analogous term for a calibration model fitted in an external validation study. Here the calibration comes from the same sample, so the adjustment is correlated with the main score.
+
+## Simulation-extrapolation {#sec:simexmethod}
+
+SIMEX \citep{cook1994simulation} has a simulation step and an extrapolation step. The simulation step adds Gaussian noise with covariance $\lambda S$ to $W^*$, for each value of a grid $0=\lambda_0<\lambda_1<\dots<\lambda_J$, and re-estimates the observed-data functional
+$$
+Q(P)=\frac{E_P[A\{D-m_P(Z)\}]}{\pi}
+$$
+at each noise level, averaging over $B$ simulated data sets. Here $m_P$ is the untreated trend given the observed covariates under the law $P$, and $Q$ is the DR-DiD functional at the true nuisances. Because the total error covariance at noise level $\lambda$ is $(1+\lambda)S$, these averages estimate the curve $q(\lambda)$ of Section \ref{sec:error} at $\lambda\ge0$. The extrapolation step fits a quadratic $q_2(\lambda)$ to the $J+1$ averages and evaluates it at $\lambda=-1$, where the total error variance is zero. We use $\lambda=(0,0.5,1,2)$, $B=20$ and $K=5$ folds, as in the original study.
+
+The cross-fitted estimator proceeds in five steps.
+
+1. Assign folds once.
+2. Estimate $\hat s_{-k}$ on the training rows of each fold.
+3. Draw the standard normals $G_{i,j,b}$ once, and form the simulated covariates $W^*+\sqrt{\lambda_j}\,\hat s_{-k}^{1/2}G$ for both the training and the held-out rows of fold $k$.
+4. Fit the nuisances on the training rows of the simulated data and evaluate the Hajek DR-DiD score with weights normalised within the held-out fold.
+5. Average over folds and simulations.
+
+The original implementation estimated $s$ on all rows and normalised the weights over pooled folds. With pooled normalisation, nuisance convergence rates within each fold do not suffice (Remark \ref{rem:pooled}). With full-sample calibration, the held-out rows of the simulated data are not conditionally independent of the calibration (Appendix \ref{app:simex-fold}).
+
+Let $\bar\phi_i$ be the vector of influence-function values of unit $i$ at the $J+1$ noise levels, averaged over the simulations (C.4). The first-step adjustment needs the derivative of each grid value with respect to the error variance $s_l$ of each error-prone coordinate $l$. That derivative is the expected product of the influence function and the score of the added noise, the derivative of its log density in $s_l$ \citep{newey1994asymptotic}. Computing it this way is the score-function method of \citet{glynn1990likelihood}. The score is $(G_l^2-1)/(2s_l)$, where $G_l$ is the standard normal draw behind the added noise, so
+$$
+\mathcal D_{jl}=E\Big[\phi_j\,\frac{G_l^2-1}{2s_l}\Big], \tag{4}
+$$
+which is estimated by averaging saved influence values times saved normals. No regularised fit or tree is differentiated. The calibration $\hat s_l=(1-r)\widehat{\mathrm{Var}}(W^*_l)$ has influence function $h_{s,l}(O)=(1-r)\{(W^*_l-EW^*_l)^2-\mathrm{Var}(W^*_l)\}$, and the combined influence value is $\chi_i=\bar\phi_i+\mathcal Dh_s(O_i)$.
+
+Theorem \ref{thm:simexfold} (Appendix \ref{app:simex-fold}) gives the limit. Suppose that the estimated error variance is, to first order, an average of its influence function on each training sample, and that at the estimated variance the product of the errors of the propensity and outcome learners shrinks faster than $n^{-1/2}$. Suppose also that the moments of the score are controlled, that $s\mapsto Q_j$ is differentiable, and that the influence function of the simulated data is mean-square continuous in $s$. Then
+$$
+\sqrt n\{\hat q_2(t)-q_2(t)\}\Rightarrow N\big(0,\ c(t)^\top\mathrm{Var}(\chi)\,c(t)\big),
+$$
+where $c(t)$ are the quadratic extrapolation weights, and the empirical covariance of $\hat\chi_i$ is consistent. The first-step adjustment contributes $2\mathrm{Cov}(c^\top\bar\phi,c^\top\mathcal Dh_s)+c^\top\mathcal D\mathrm{Var}(h_s)\mathcal D^\top c$, which can have either sign. A finite number of simulations needs no correction, because the simulation variance, $\mathrm{diag}\{E[v_j]/B\}$ in (C.5), is already inside $\mathrm{Var}(\bar\phi)$. With villages as independent clusters and whole villages assigned to folds, the same expansion holds with cluster sums of $\chi_i$ (Proposition \ref{prop:cluster}).
+
+Let $\hat\Omega$ estimate the covariance of $L\chi$, where $L$ maps grid values to quadratic coefficients. The band $\hat q_2(t)\pm k_\alpha\{z(t)^\top\hat\Omega z(t)/n\}^{1/2}$, with $z(t)=(1,t,t^2)^\top$ and $k_\alpha^2=\chi^2_{3,1-\alpha}$, covers the whole quadratic on $[-1,0]$ at once with asymptotic probability at least $1-\alpha$. Its extremes give an interval for the range $[\min q_2,\max q_2]$ that remains valid when the extrema are tied or the curve is flat (C.11). Delta-method intervals for the end points do not, because the directional derivative of a minimum is non-linear at ties (C.12).
+
+## Extrapolation error and bias-aware intervals {#sec:biasint}
+
+The quadratic is a model for the SIMEX curve $q$, not the curve itself. If $|q'''|\le M$ on $[t,\lambda_J]$, the Peano kernel, which writes the extrapolation error as an integral of $q'''$ against a known piecewise quadratic, gives $|q_2(t)-q(t)|\le M\kappa(t)$, with $\kappa(t)$ computable exactly (C.13)–(C.14). On the grid $(0,0.5,1,2)$, $\kappa(-1)=21/22$. A cubic with $|q'''|=M$ attains this bound, so the constant cannot be improved over smooth curves. The worst-case extrapolation bias $M\kappa(t)$ turns sampling intervals into intervals for $\tau$ (Corollary \ref{cor:outer}). With known reliability, the interval is
+$$
+\hat q_2(-1)\pm\big\{z_{1-\alpha/2}\widehat{\mathrm{se}}+\tfrac{21}{22}M\big\}. \tag{5}
+$$
+When the reliability is only known to lie in $[r_L,1]$, so that the noise level of the true reliability lies in $[-1,0]$, the interval is
+$$
+\Big[\min_{t\in[-1,0]}\{\hat q_2(t)-w_n(t)-M\kappa(t)\},\ \max_{t\in[-1,0]}\{\hat q_2(t)+w_n(t)+M\kappa(t)\}\Big], \tag{6}
+$$
+where $w_n(t)$ is the half-width of the band. Both are bias-aware intervals in the sense of \citet{armstrong2018optimal, armstrong2020simple}, intervals that remain valid when the estimator has a bias of known maximum size, here the worst-case extrapolation bias. Adding the bias bound to the half-width, as (5) and (6) do, is conservative. $M$ is a sensitivity parameter, in outcome units per cubed unit of $\lambda$, and cannot be learned from the positive-noise grid. It plays the role that the bound on second differences of trend violations plays in the sensitivity analysis of \citet{rambachan2023more}, and $M=0$ is exact quadratic extrapolation. We fixed a grid of $M$ values before the first amendment's runs. After all studies had been seen, we also computed intervals with the bias-aware critical value of \citet{armstrong2020simple}. Such an interval replaces the half-width of (5) by $\widehat{\mathrm{se}}\,\mathrm{cv}_\alpha\{21M/(22\,\widehat{\mathrm{se}})\}$, where $\mathrm{cv}_\alpha(b)$ is the $1-\alpha$ quantile of $|N(b,1)|$. It is valid under the same bound and never longer than (5) (Section \ref{sec:biasaware}). For the application we also report the breakdown value of $M$, the largest $M$ at which an interval excludes zero \citep{masten2020inference}.
+
+\citet{chen2026generalized} also drop the assumption that the extrapolant is exact. For parametric M-estimators, they let the polynomial order and the density of the grid grow until the approximation error is negligible. We keep the quadratic on a fixed four-point grid and carry its worst-case error into the interval.
+
+# When the corrected targets equal the ATT {#sec:map}
+
+## Linear calibration and the posterior mean {#sec:gap}
+
+```{r gap-text, include=FALSE}
+gch <- ex$popmap$gapchk
+gcv <- function(sl, r, col) gch[[col]][gch$sl == sl & gch$r == r]
+```
+
+The two corrections fail for different reasons. SIMEX fails when its curve is not quadratic, and Section \ref{sec:biasint} bounds that error. Regression calibration fails when its linear predictor is not the best prediction of the true covariate. The best prediction in mean square is the conditional mean of $W$ given $Z$ within the treatment group, the posterior mean of $W$ once the report has been seen. \citet{fraser2012regression} study the risk that the two differ when the exposure is markedly non-Gaussian, and Proposition \ref{prop:gap} (Appendix \ref{app:rc-gap}) measures the difference under classical Gaussian error. Take one error-prone covariate and no $V$. By Tweedie's formula \citep{efron2011tweedie}, the posterior mean within a group is $W^*+s\,(\log p)'(W^*)$, where $p$ is the density of $W^*$ in that group, so its shape follows the shape of $p$. The mean squared gap between the posterior mean and the best linear predictor is $s^2\{I-1/\mathrm{Var}(W^*)\}$, where $I=E[\{(\log p)'(W^*)\}^2]$ is the Fisher information of $W^*$ for location. This is Brown's identity between estimation error and Fisher information \citep{brown1971admissible, guo2005mutual}. Among laws with a given variance, the Gaussian has the smallest Fisher information, $1/\mathrm{Var}(W^*)$, so the gap measures how far $W^*$ is from Gaussian. As a share of $\mathrm{Var}(W^*)$, the mean squared gap is $(1-r)^2J^\circ$, with $r$ the reliability within the group and $J^\circ=\mathrm{Var}(W^*)I-1\ge0$ the standardised Fisher information of $W^*$ \citep{johnson2004fisher}, the excess of its Fisher information over that of a Gaussian with the same variance. We call this share the gap share. Because $J^\circ$ depends only on the law of the reports, the reliability enters the gap share only through the factor $(1-r)^2$. The gap is zero if and only if, within the group, $W$ given $V$ is Gaussian with a mean linear in $V$ and a constant covariance (Proposition \ref{prop:gap}).
+
+The gap enters the target directly. Call $h_1(Z)$ the calibrated point of a treated unit. The outcome regression, fitted on calibrated controls, is evaluated at these points. With a trend that is linear in $W$, $\beta^\top W$, and a nonparametric outcome regression, the bias of regression calibration is $-\beta^\top E[\Delta_0\mid A=1]$, where $\Delta_0$ is the control group's gap evaluated at the treated units' calibrated points (Corollary \ref{cor:rcbias}). A flexible learner fitted on calibrated controls learns the control group's gap, and that gap does not hold for the treated group. Calibrating by the posterior mean instead of the linear predictor removes this bias for every linear trend, whatever the shape of $W$. The posterior mean is not a drop-in replacement, however. A trend that is nonlinear in $W$ depends on the posterior variance of $W$ as well as on its mean, and \citet{lockwood2016matching} show that the posterior mean given treatment is not a valid matching variable when that variance differs between treatment groups. It is the same in both groups only in special cases, such as the Gaussian case with a common covariance of Section \ref{sec:rcmethod}. We therefore use calibration by the posterior mean only as a check on regression calibration, and leave estimators built on it, with their inference, to future work.
+
+The gap share can be estimated before any outcome is modelled. The posterior mean needs the law of $W$ within the group, which we estimate from the reports by the nonparametric maximum likelihood estimator (NPMLE) of a Gaussian location mixture, an estimator that assumes nothing about the shape of that law \citep{kiefer1956consistency, jiang2009general, soloff2025multivariate}. The mean squared difference between the resulting posterior mean and the best linear predictor, divided by the variance of $W^*$, estimates the share (Appendix \ref{app:computation}). In 20 control groups of 3,000 draws from the log-normal design with skewness 6.2, the estimated share averaged `r fmt(gcv(1, 0.6, "est_mean"))` (SD `r fmt(gcv(1, 0.6, "est_sd"))`) against a true `r fmt(gcv(1, 0.6, "truth"))` at reliability 0.6, and `r fmt(gcv(1, 0.9, "est_mean"))` (SD `r fmt(gcv(1, 0.9, "est_sd"))`) against `r fmt(gcv(1, 0.9, "truth"))` at reliability 0.9. With Gaussian covariates, where the true share is zero, the estimate averaged `r fmt(gcv(0, 0.6, "est_mean"))`, which is the resolution of the estimator at this sample size.
+
+## Exact population targets {#sec:popmap}
+
+```{r map-text, include=FALSE}
+PM <- ex$popmap$map; P1 <- PM[PM$ratio == 1, ]; P2 <- PM[PM$ratio == 2, ]
+pv <- function(col, s_l, rel, b, rt = 1) PM[[col]][PM$sl == s_l & PM$r == rel & PM$bq == b & PM$ratio == rt]
+sk <- function(s_l) fmt(unique(PM$skewness[PM$sl == s_l]), 2)
+hi_rel <- P1[P1$r >= 0.9 & P1$sl >= 0.5, ]
+sk_lin <- P1[P1$sl > 0 & P1$bq == 0, ]; sk_quad <- P1[P1$sl > 0 & P1$bq == 0.5, ]
+cnt_s <- \(d) sum(d$better == "SIMEX")
+conv <- ex$popmap$convergence; mcc <- ex$popmap$mc
+```
+
+The targets of the two corrections, and hence the extrapolation error of SIMEX and the gap of regression calibration, can be computed exactly in a family of designs, without sampling. We do this to see where the target of each correction is close to the ATT before any learner or sample size enters, and we call the resulting grid of targets the population map.
+
+The designs come from one family with two error-prone covariates $W=(W_1,W_2)$ and one exact covariate $V$, which the simulation studies of Section \ref{sec:sim} also use (Figure \ref{fig:simdags}a). For $c=1,2$,
+$$
+\begin{aligned}
+&A\sim\mathrm{Bernoulli}(0.4),\qquad W_c=\Delta_cA+(1-s_c)^{1/2}L_c,\qquad W^*_c=W_c+U_c,\qquad U_c\sim N(0,s_c),\\
+&D=W_1+0.8W_2+0.5V+0.5A+\beta_q\{W_1^2-E(W_1^2)\}+\varepsilon,\qquad V,\varepsilon\sim N(0,1),
+\end{aligned}\tag{7}
+$$
+with $\Delta=(0.6,0.4)$ and $A$, $L_1$, $L_2$, $U_1$, $U_2$, $V$ and $\varepsilon$ independent. Each $L_c$ is a standardised log-normal variable whose logarithm has standard deviation $\omega\in\{0,0.25,0.5,0.75,1\}$, so that its skewness is 0, `r sk(0.25)`, `r sk(0.5)`, `r sk(0.75)` or `r sk(1)`, and $\omega=0$ means Gaussian. The error variance $s_c=(1-r)\mathrm{Var}(W^*_c)$ is set by the reliability $r\in\{0.5,0.6,0.7,0.8,0.9,0.95\}$. Within each group $W^*_c$ has unit variance whatever the shape, so the best linear predictor of regression calibration does not depend on $\omega$. The untreated trend is linear ($\beta_q=0$) or quadratic ($\beta_q=0.5$), and the ATT is 0.5. These 60 designs form the main grid, and a second grid of 60 doubles the variance of $W_1$ among the treated.
+
+The nuisances are the true conditional means given the covariates that each method uses, which is the limit of a consistent nonparametric learner. Each target is then an integral over the latent law and the error, which we compute by quadrature. The values reproduce the closed form in the Gaussian designs, change by less than $10^{-4}$ when every grid is doubled, and agree to within `r fmt(max(abs(c(mcc$rc_mc - mcc$rc_map, mcc$naive_mc - mcc$naive_map))), 3)` with a brute-force Monte Carlo computation that shares only the design (Appendix \ref{app:computation}).
+
+```{=latex}
+\begin{figure}[tb]
+\centering
+\tikzset{v/.style={draw, circle, minimum size=8mm, inner sep=0.5pt, font=\small, line width=0.5pt},
+         lat/.style={v, fill=gray!25},
+         obs/.style={v, fill=white},
+         rv/.style={draw, rectangle, rounded corners=1pt, inner sep=2.5pt, font=\scriptsize, line width=0.5pt, minimum height=6mm},
+         rlat/.style={rv, fill=gray!25},
+         robs/.style={rv, fill=white},
+         arr/.style={-{Stealth[length=2.2mm, width=1.7mm]}, line width=0.6pt, shorten >=0.6pt, shorten <=0.6pt},
+         lab/.style={font=\scriptsize, fill=white, inner sep=1pt}}
+\begin{minipage}[t]{0.47\textwidth}\centering
+{\footnotesize (a) Two-covariate family (7)}\\[2mm]
+\begin{tikzpicture}[x=0.95cm, y=0.95cm]
+\node[lat] (U1) at (0, 3.6) {$U_1$};
+\node[obs] (W1s) at (0, 2.4) {$W_1^*$};
+\node[lat] (W1) at (1.7, 2.4) {$W_1$};
+\node[lat] (W2) at (1.7, 0.8) {$W_2$};
+\node[obs] (W2s) at (0, 0.8) {$W_2^*$};
+\node[lat] (U2) at (0, -0.4) {$U_2$};
+\node[obs] (A) at (3.5, 1.6) {$A$};
+\node[obs] (D) at (5.6, 1.6) {$D$};
+\node[obs] (V) at (5.6, 0.0) {$V$};
+\draw[arr] (U1) -- (W1s); \draw[arr] (W1) -- (W1s); \draw[arr] (W2) -- (W2s); \draw[arr] (U2) -- (W2s);
+\draw[arr] (W1) -- (A); \draw[arr] (W2) -- (A);
+\draw[arr] (A) -- node[lab, above] {$0.5$} (D);
+\draw[arr] (W1) to[bend left=22] node[lab, above] {$1$, $\beta_q$} (D);
+\draw[arr] (W2) to[bend right=22] node[lab, below] {$0.8$} (D);
+\draw[arr] (V) -- node[lab, right] {$0.5$} (D);
+\end{tikzpicture}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.5\textwidth}\centering
+{\footnotesize (b) Original study}\\[2mm]
+\begin{tikzpicture}[x=0.95cm, y=0.95cm]
+\node[lat] (U) at (2.9, 3.4) {$U$};
+\node[obs] (Ws) at (1.0, 3.4) {$W^*$};
+\node[rlat] (W) at (1.0, 2.1) {$W$: $c_1,c_3,c_4,c_6,c_8$};
+\node[robs] (V) at (1.0, 1.1) {$V$: $c_2,c_5,c_7,c_9,c_{10}$};
+\node[draw, dashed, rounded corners=2pt, inner sep=3pt, fit=(W) (V)] (X) {};
+\node[robs] (M) at (1.0, -0.1) {modifiers $c_{11}$--$c_{15}$};
+\node[robs] (N) at (1.0, -1.0) {noise $c_{16}$--$c_{20}$};
+\node[obs] (A) at (4.1, 2.1) {$A$};
+\node[obs] (D) at (5.9, 1.1) {$D$};
+\draw[arr] (W) -- (Ws); \draw[arr] (U) -- (Ws);
+\draw[arr] (X.east |- A) -- (A);
+\draw[arr] (X.east |- V) -- (D);
+\draw[arr] (A) -- (D);
+\draw[arr] (M) -- (D);
+\end{tikzpicture}
+\end{minipage}
+\caption{Causal structures of the simulation designs. Grey nodes are latent. (a) The two-covariate family (7) of the population map and of the first to fifth amendments. Edge labels give the coefficients of the outcome change, and $\beta_q$ adds the quadratic term in $W_1$. The design draws $A$ first and $W$ given $A$, which is equivalent to confounding by $W$ as drawn. (b) The original study. The ten confounders in the dashed box enter a logit propensity and the untreated trend. Its five continuous ones, $W$, are reported with error, and the other five, $V$, are exact. The five effect modifiers enter only the treatment effect of the nonlinear family, and the last five covariates are unrelated to treatment and outcome.}\label{fig:simdags}
+\end{figure}
+```
+
+With Gaussian covariates, regression calibration is exact for both trends, as Section \ref{sec:rcmethod} states, and its bias is below $10^{-4}$ in all twelve designs (Figure \ref{fig:popmap}). The bias of SIMEX is its extrapolation error. With a linear trend it falls from `r nm(pv("simex", 0, 0.5, 0))` at reliability 0.5 to `r nm(pv("simex", 0, 0.9, 0))` at 0.9, and with the quadratic trend from `r nm(pv("simex", 0, 0.5, 0.5))` to `r nm(pv("simex", 0, 0.9, 0.5))`. The extrapolation always runs from $\lambda=0$ to $\lambda=-1$, but at high reliability the curve is nearly flat over that distance.
+
+With skewed covariates and a linear trend, the bias of regression calibration is the term $-\beta^\top E[\Delta_0\mid A=1]$ of Corollary \ref{cor:rcbias}. It grows with skewness and is not monotone in the reliability. At skewness `r sk(1)` it is `r nm(pv("rc", 1, 0.5, 0))` at reliability 0.5, `r nm(pv("rc", 1, 0.8, 0))` at 0.8 and `r nm(pv("rc", 1, 0.95, 0))` at 0.95. SIMEX's bias also grows with skewness, but it falls faster as reliability rises. For skewness of at least `r sk(0.5)` the two cross between reliability 0.8 and 0.9. At reliability 0.9 or above and skewness of at least `r sk(0.5)`, SIMEX's target is closer to the ATT in `r cnt_s(hi_rel)` of the `r nrow(hi_rel)` designs. At reliability 0.8 or below, regression calibration's target is closer in every design with a linear trend.
+
+A quadratic trend adds a second source of error for regression calibration. Its target is then the ATT only if the conditional variance of $W_1$ given the observed covariates is the same in both groups and does not depend on them (Section \ref{sec:rcmethod}). By the second-order form of Tweedie's formula \citep{efron2011tweedie}, that variance is constant only when the covariate is Gaussian. For a skewed covariate it changes with the observed value, and the bias of regression calibration is then negative and large at low reliability. At skewness `r sk(0.25)` and reliability 0.5 it is `r nm(pv("rc", 0.25, 0.5, 0.5))`, against `r nm(pv("simex", 0.25, 0.5, 0.5))` for SIMEX. Over all skewed designs, SIMEX's target is closer in `r cnt_s(sk_quad)` of `r nrow(sk_quad)` with the quadratic trend and in `r cnt_s(sk_lin)` of `r nrow(sk_lin)` with the linear trend. When the treated group's $W_1$ has twice the variance of the control group's, regression calibration is no longer exact with a quadratic trend even for Gaussian covariates, and SIMEX's target is closer in `r cnt_s(P2)` of the 60 designs (Appendix \ref{app:computation}).
+
+The gap share of Proposition \ref{prop:gap} measures how far the covariate is from Gaussian, from `r fmt(pv("gap_share_w1", 0.25, 0.6, 0), 3)` at skewness `r sk(0.25)` to `r fmt(pv("gap_share_w1", 1, 0.6, 0), 3)` at skewness `r sk(1)` (reliability 0.6). It does not rank the bias of regression calibration, because that bias depends on the gap at the treated units' calibrated points rather than on its average over the controls. At reliability 0.5 the share is `r fmt(pv("gap_share_w1", 0.25, 0.5, 0), 3)` at skewness `r sk(0.25)` and `r fmt(pv("gap_share_w1", 1, 0.5, 0), 3)` at skewness `r sk(1)`, while the bias of regression calibration is `r nm(pv("rc", 0.25, 0.5, 0))` and `r nm(pv("rc", 1, 0.5, 0))`. A zero share certifies that regression calibration is exact for a linear trend. A positive share says only that its bias needs to be checked, for example by comparing it with calibration by the posterior mean, which is exact for every linear trend (Corollary \ref{cor:rcbias}). In this grid its bias with a linear trend is below $10^{-4}$.
+
+```{r popmap, fig.cap="Population bias of regression calibration (circles, solid) and SIMEX (triangles, dashed) with nonparametric nuisances, computed by quadrature without sampling. Columns give the skewness of the true covariates and rows the untreated trend. The variance of $W_1$ is the same in both groups.", out.width="100%"}
+knitr::include_graphics("figures/fig_pop_map.pdf")
+```
+
+The map describes targets, not estimates. A learner that is not consistent for the control regression, or a sample too small to reach the tails where the treated units are mapped, can move an estimate far from its target and can even reverse the ranking of the two corrections. The map also assumes Gaussian error, covariates that are independent given treatment, and a known reliability.
+
+# Simulation studies {#sec:sim}
+
+Section \ref{sec:map} computed the targets of the two corrections without sampling. The Monte Carlo studies below take up, in turn, whether the intervals of each correction cover, which correction is closer to the ATT and where, how much the outcome learner matters, and what happens when the error depends on treatment. Table \ref{tab:studies} lists the studies. The original study was fixed in a time-stamped protocol before it ran. Each later study was specified in a dated amendment after the earlier results had been seen, and was frozen before its first replicate (Appendix \ref{app:repro}). We report them in the structure of \citet{morris2019using}, and every post hoc analysis is labelled as such.
+
+```{r studies}
+studies <- data.frame(
+  Study = c("Original study", "First amendment", "Second amendment", "Third amendment", "Fourth amendment",
+            "Fifth amendment", "Post hoc"),
+  Frozen = c("13 Sep 2026", "6 Oct 2026", "8 Oct 2026", "11 Oct 2026", "11 Oct 2026", "14 Oct 2026", "--"),
+  Question = c("How measurement error changes twelve DiD estimators, and whether the original SIMEX and misclassification corrections recover the ATT",
+               "Inference for SIMEX with cross-fitted calibration",
+               "Regression calibration given the same information, and convergence of the Bayesian causal forest",
+               "Covariate shape and trend, and regression calibration with cross-fitted calibration and its variance",
+               "High reliability with a strongly skewed covariate, and a flexible learner",
+               "Sensitivity of the spline lasso to extrapolation",
+               "Population targets, estimated gap shares and the bias-aware critical value"),
+  Design = c("64 cells (16 measurement designs, 2 trend families, $n\\in\\{1000,5000\\}$)",
+             "Closed-form Gaussian design with the reliability known or bounded, original design at $r=0.6$ and 0.75, same samples on the true covariates, and BIHS semi-synthetic design",
+             "Closed-form design, the 12 classical-error and 2 differential-error cells of the original study, and a pilot of 20 replicates in 3 cells",
+             "Gaussian or log-normal (skewness 3.7) covariates, linear or quadratic trend, $r=0.6$",
+             "Log-normal covariates (skewness 6.2), $r=0.9$, lasso with squares and spline lasso",
+             "The three spline-lasso cells of the fourth amendment, covariates clamped to the training range",
+             "Quadrature over 120 designs, and recomputation from the saved estimates"),
+  Sections = c("\\ref{sec:accuracy}, \\ref{sec:differential}, \\ref{app:orig}", "\\ref{sec:inference}, \\ref{app:semi}",
+               "\\ref{sec:accuracy}, \\ref{sec:differential}, \\ref{app:bcf}, \\ref{app:rc}", "\\ref{sec:inference}, \\ref{sec:accuracy}, \\ref{app:shape}",
+               "\\ref{sec:accuracy}, \\ref{sec:learner}, \\ref{app:a45}", "\\ref{sec:learner}, \\ref{app:a45}", "\\ref{sec:map}, \\ref{sec:biasaware}"),
+  check.names = FALSE)
+kbl2(studies, font = 7.5, escape = FALSE, align = "llllr",
+     "Studies of the simulation evidence, with the date on which each was frozen and the sections and appendices that report it. Every study has 500 replicates per cell, except the convergence pilot of the second amendment (20). The dated protocols and deviations are listed in Appendix \\ref{app:repro}.") |>
+  column_spec(1, width = "1.9cm") |> column_spec(2, width = "1.3cm") |> column_spec(3, width = "4.3cm") |>
+  column_spec(4, width = "5.2cm") |> column_spec(5, width = "1.6cm")
+```
+
+## Designs {#sec:designs}
+
+*Original study.* The original study has 64 cells with 500 replicates each (Figure \ref{fig:simdags}b). Twenty baseline covariates have marginal moments matched to BIHS round 1. Ten are confounders, which enter the propensity $P(A=1\mid X)=\mathrm{expit}(-0.55+\kappa_X^\top x)$ and the untreated trend, and the five continuous ones among them receive measurement error. With standardised covariates $x$, the observed change is
+$$
+D=0.2+\delta_X^\top x+h(x)+\theta(x)A+\varepsilon_1-\varepsilon_0,\qquad\varepsilon_t\sim N(0,0.7^2), \tag{8}
+$$
+where $\kappa_X$ and $\delta_X$ are fixed coefficients (Appendix \ref{app:computation}). In the linear family $h=0$ and $\theta=0.2$. The nonlinear family adds a trend surface $h$ with interactions, a sine and a square, and an effect $\theta(x)$ that varies with five effect modifiers. Sixteen measurement designs are crossed with the two families and with $n\in\{1000,5000\}$. They are the baseline without error, classical covariate error at reliability 0.9, 0.75 and 0.6, covariate error that is differential with respect to treatment, three levels of treatment misclassification, and four kinds of outcome error. Twelve DiD estimators and the original SIMEX and misclassification corrections are scored against the sample ATT. Appendix \ref{app:orig} gives the estimators and the results for outcome error and misclassification, Appendix \ref{app:origtables} the full tables, and Appendix \ref{app:bcf} the convergence pilot for the Bayesian causal forest.
+
+*Two-covariate designs.* The amendments use members of the family (7) (Figure \ref{fig:simdags}a). The closed-form design is its Gaussian member with a linear trend. Every simulated law of SIMEX then has a logit-linear propensity and a linear trend, so a parametric learner, a logistic propensity with a linear outcome regression, is correctly specified, and the SIMEX curve, its quadratic approximation, the true $M$ and the ATT are known in closed form. The covariate-shape design of the third amendment crosses Gaussian and log-normal covariates (skewness 3.7) with the linear and the quadratic trend at reliability 0.6. The fourth amendment uses log-normal covariates with skewness 6.2 at reliability 0.9.
+
+*Semi-synthetic design.* The first amendment also resamples whole villages of the BIHS cohort of Section \ref{sec:app}, simulates outcomes around a known ATT and adds classical error to log assets and log land (Appendix \ref{app:semi}).
+
+```{r confirm-text, include=FALSE}
+gk <- function(ce, le, me, ...) cv("gauss_known", ce, le, me, ...)
+gr <- function(ce, le, me, ...) cv("gauss_range", ce, le, me, ...)
+dg <- function(ce, me, ...) cv("dgp_simex", ce, "glmnet", me, ...)
+cx6 <- function(N) sprintf("x_classical__r0.60__nonlinear__N%d", N)
+cx75 <- "x_classical__r0.75__nonlinear__N1000"
+fp <- cf$paired[cf$paired$contrast == "fold - production simex_lasso", ]
+widen <- function(N) 100 * (dg(cx6(N), "width_point_M0.05") / dg(cx6(N), "width_point_M0") - 1)
+og <- cf$oracle[cf$oracle$metric == "observed_minus_latent", ]
+gap <- function(ce, le) nm(og$value[og$cell == ce & og$learner == le])
+ocov <- function(ce, le, arm) cf$oracle$value[cf$oracle$cell %in% ce & cf$oracle$learner == le &
+                                               cf$oracle$arm == arm & cf$oracle$metric == "cover_att"]
+orng <- function(x) paste0(fmt(min(x)), "--", fmt(max(x)))
+oc_x <- c("x_classical__r0.60__linear__N5000", "x_classical__r0.60__nonlinear__N5000")
+oc_m <- c("treat_misclass__large__linear__N5000", "treat_misclass__large__nonlinear__N5000")
+```
+
+```{r rc-text, include=FALSE}
+rcL <- ex$followup$rc$long; rcP <- ex$followup$rc$paired
+rv <- function(st, ce, le, me, mt, col = "value") {
+  r <- rcL[rcL$study == st & rcL$cell == ce & rcL$learner == le & rcL$method == me & rcL$metric == mt, col]
+  if (length(r) != 1) stop("rc value not unique: ", paste(st, ce, le, me, mt)); r
+}
+rcd <- function(ce, me, mt, ...) rv("rc_dgp", ce, "glmnet", me, mt, ...)
+rcg <- function(ce, me, mt, ...) rv("rc_gauss", ce, "glm", me, mt, ...)
+rcx <- function(fam, me, mt, ...) rv("rc_xnc", sprintf("x_nc__large__%s__N5000", fam), "glmnet", me, mt, ...)
+pd  <- function(contrast) rcP[rcP$study == "rc_dgp" & rcP$contrast == contrast, ]
+p_s <- pd("RC - production SIMEX-lasso"); p_l <- pd("RC - latent")
+c6  <- "x_classical__r0.60__nonlinear__N5000"
+n1k <- grepl("N1000$", p_s$cell)
+num_word <- function(k) c("none", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")[k + 1]
+of_six <- function(k) if (k == 6) "all six cells" else paste(num_word(k), "of the six cells")
+cells1k <- unique(rcL$cell[rcL$study == "rc_dgp" & grepl("N1000$", rcL$cell)])
+sd1k <- function(me) sapply(cells1k, \(ce) rcd(ce, me, "emp_sd"))
+dgp_rng <- function(me, mt, d = 3) {
+  x <- rcL$value[rcL$study == "rc_dgp" & rcL$method == me & rcL$metric == mt]; paste0(fmt(min(x), d), "--", fmt(max(x), d)) }
+g_rng <- function(me, mt, d = 3, signed = FALSE) {
+  x <- rcL$value[rcL$study == "rc_gauss" & rcL$method == me & rcL$metric == mt]
+  if (signed) paste(nm(min(x), d), "to", nm(max(x), d)) else paste0(fmt(min(x), d), "--", fmt(max(x), d)) }
+gor <- ex$popmap$original; gor <- gor[gor$reliability == 0.6, ]          # gap diagnostic on the original design
+gpm <- function(s_l, rel) { M <- ex$popmap$map; M$gap_share_w1[M$sl == s_l & M$r == rel & M$bq == 0 & M$ratio == 1] }
+```
+
+```{r shape-text, include=FALSE}
+a3L <- ex$amend3$long; a3P <- ex$amend3$paired
+sv <- function(ce, me, mt, le = "glmnet", st = "shape", col = "value") {
+  r <- a3L[a3L$study == st & a3L$cell == ce & a3L$learner == le & a3L$method == me & a3L$metric == mt, col]
+  if (length(r) != 1) stop("amend3 value not unique: ", paste(st, ce, le, me, mt)); r
+}
+sp <- function(ce, contrast, col, le = "glmnet", st = "shape") {
+  r <- a3P[a3P$study == st & a3P$cell == ce & a3P$learner == le & a3P$contrast == contrast, col]
+  if (length(r) != 1) stop("amend3 paired value not unique: ", paste(st, ce, le, contrast)); r
+}
+shp_cells <- expand.grid(n = c(1000, 5000), trend = c("linear", "quad"), shape = c("gauss", "lnorm"), stringsAsFactors = FALSE)
+shp_cells$cell <- sprintf("%s_%s_n%d", shp_cells$shape, shp_cells$trend, shp_cells$n)
+srng <- function(cells, me, mt, d = 3, le = "glmnet", st = "shape", signed = FALSE) {
+  x <- vapply(cells, \(ce) sv(ce, me, mt, le, st), 0)
+  if (signed) paste(nm(min(x), d), "to", nm(max(x), d)) else paste0(fmt(min(x), d), "--", fmt(max(x), d))
+}
+gc <- shp_cells$cell[shp_cells$shape == "gauss"]; ll <- c("lnorm_linear_n1000", "lnorm_linear_n5000")
+lq1 <- "lnorm_quad_n1000"; lq5 <- "lnorm_quad_n5000"
+fav <- c(gc, ll)                                            # cells where calibration's linear model holds or nearly so
+aed <- vapply(fav, \(ce) -sp(ce, "rc_fold - simex_fold", "abs_err_diff"), 0)
+aem <- vapply(fav, \(ce) sp(ce, "rc_fold - simex_fold", "abs_err_diff_mcse"), 0)
+mx <- \(cells, me, mt, col = "value") max(vapply(cells, \(ce) sv(ce, me, mt, col = col), 0))
+dgp_cells <- unique(a3L$cell[a3L$study == "rc_dgp"])
+dsh <- vapply(dgp_cells, \(ce) sv(ce, "rc_fold", "calibration_var_share", st = "rc_dgp"), 0)
+dcd <- vapply(dgp_cells, \(ce) sp(ce, "rc_fold - rc_group", "cover_diff", st = "rc_dgp"), 0)
+sx_share <- max(a3L$value[a3L$study == "shape" & a3L$method == "simex_fold" & a3L$metric == "calibration_var_share"])
+pr <- function(cells, me, mt, d) { x <- 100 * vapply(cells, \(ce) sv(ce, me, mt), 0); paste0(fmt(min(x), d), "--", fmt(max(x), d)) }
+# Fourth amendment (reliability 0.9, lasso with squares and spline lasso) and fifth (clamped spline).
+a4L <- ex$amend4$long; a4P <- ex$amend4$paired; a4T <- ex$amend4$tail; a5C <- ex$amend5$compare
+s4 <- function(ce, le, me, mt, col = "value") {
+  r <- a4L[a4L$cell == ce & a4L$learner == le & a4L$method == me & a4L$metric == mt, col]
+  if (length(r) != 1) stop("amend4 value not unique: ", paste(ce, le, me, mt)); r
+}
+p4 <- function(ce, le, contrast, col) {
+  r <- a4P[a4P$cell == ce & a4P$learner == le & a4P$contrast == contrast, col]
+  if (length(r) != 1) stop("amend4 paired value not unique: ", paste(ce, le, contrast)); r
+}
+t4 <- function(ce, le, me, col) a4T[[col]][a4T$cell == ce & a4T$learner == le & a4T$method == me]
+c5 <- function(ce, me, col) a5C[[col]][a5C$cell == ce & a5C$method == me]
+r389 <- ex$amend4$rep389; r389k <- r389$fold[which.min(r389$tau_fold)]   # worst replicate, fold with the outlying control
+l9 <- "lnorm_linear_r090_n5000"; q9 <- "lnorm_quad_r090_n5000"; g9 <- "gauss_linear_r090_n5000"
+pmv <- function(sl, r, bq, col) { M <- ex$popmap$map; M[[col]][M$sl == sl & M$r == r & M$bq == bq & M$ratio == 1] }
+```
+
+```{r rcvar-text, include=FALSE}
+vc <- ex$amend3$var_components; vt <- ex$amend3$var_tails
+vshare <- function(tr, part) fmt(100 * vc[[paste0("var_", part)]][vc$trend == tr] / vc$var_phi[vc$trend == tr], 0)
+gc5 <- gc[grepl("n5000", gc)]; gc1 <- gc[grepl("n1000", gc)]
+vt_k <- range(vt$excess_kurtosis[grepl("n1000", vt$cell)])
+dnl <- vapply(dgp_cells, \(ce) sp(ce, "naive - latent", "est_diff", st = "rc_dgp"), 0)
+```
+
+## Inference with cross-fitted calibration {#sec:inference}
+
+The first amendment evaluates the SIMEX of Section \ref{sec:simexmethod} in four studies with 500 replicates per cell.
+
+1. The closed-form design with reliability 0.6 known.
+2. The same design with true reliability 0.75 and the reliability treated as unknown in $[0.6,1]$.
+3. The original study's design with classical error and nonlinear trends, at reliability 0.6 with $n=1{,}000$ and $5{,}000$ and at reliability 0.75 with $n=1{,}000$. It is regenerated with the original seeds, so each replicate pairs with the saved row of the original study.
+4. A same-sample comparison in which lasso and boosted DR-DiD are fitted to the error-prone covariates and to the true ones.
+
+Each SIMEX study compares the known error covariance with cross-fitted calibration on the same data and folds. A fifth study uses the semi-synthetic design, and its rows appear in Table \ref{tab:confirm}.
+
+Before the runs, the implementation passed `r ex$checks$pass` of `r ex$checks$n` deterministic and Monte Carlo checks against the derivations, including the derivative (4) against its exact value in the closed-form design (Appendix \ref{app:repro}).
+
+When its assumptions held, the revised SIMEX gave close to nominal inference for the quadratic (Table \ref{tab:confirm}, Figure \ref{fig:confirmcov}). Write $t^*=-(1-r_0)/(1-r_L)$ for the noise level that corresponds to the true reliability $r_0$ when the assumed reliability is $r_L=0.6$, so that $t^*=-1$ when $r_0=r_L$. In the closed-form design with known reliability, the bias of $\hat q_2(-1)$ against $q_2(-1)$ ranged from `r crng("bias_q2", "gauss_known", signed = TRUE)` (MCSE `r crng("bias_q2", "gauss_known", col = "mcse")`). The ratio of mean SE to empirical SD was `r crng("se_ratio", "gauss_known", d = 2)`, lowest for the lasso at $n=1{,}000$, and the pointwise interval covered $q_2(-1)$ in `r crng("cover_q2_calaware", "gauss_known")` of replicates. The simultaneous band covered the whole quadratic on $[-1,0]$ in `r crng("cover_band_q2", "gauss_known")`, in line with its guarantee of at least 0.95. With $r_0=0.75$ and the reliability treated as unknown in $[0.6,1]$, the pointwise interval covered $q_2(t^*)$, $t^*=-0.625$, in `r crng("cover_q2_calaware", "gauss_range")` of replicates, and the interval from the band covered the range of $q_2$ on $[-1,0]$ in `r crng("cover_range_q2", "gauss_range")`.
+
+The first-step adjustment barely changed the standard error in any design of the first amendment. Across all `r ck$n_cells` SIMEX cells, including the original and semi-synthetic designs, cross-fitted calibration raised the mean SE by at most `r fmt(ck$se_infl_pct, 1)`% relative to the SE without the adjustment, and the adjustment's own variance, the last term of (C.9), averaged at most `r fmt(ck$share_pct, 1)`% of the total. In the closed-form designs, coverage of $q_2(t^*)$ with and without the adjustment differed by at most `r fmt(ck$q2_cov_diff)`. Estimates with cross-fitted calibration and with the known covariance, on the same data and folds, differed on average by at most `r fmt(ck$fold_fixed_diff)` (paired MCSE at most `r fmt(ck$fold_fixed_mcse)`).
+
+Exact quadratic extrapolation, however, missed the ATT. Because $q_2(-1)$ exceeds $\tau$ by 0.16 in the known-reliability design, interval (5) with $M=0$ covered $\tau$ in `r fmt(gk(ck$gk1, "glm", "cover_att_point_M0"))` (parametric) and `r fmt(gk(ck$gk1, "glmnet", "cover_att_point_M0"))` (lasso) of replicates at $n=1{,}000$, and in `r fmt(gk(ck$gk5, "glm", "cover_att_point_M0"))` at $n=5{,}000$. Coverage fell as $n$ grew because the interval narrowed around $q_2(-1)$. The largest value on the pre-declared grid, $M=0.05$, raised coverage at $n=5{,}000$ only to `r fmt(gk(ck$gk5, "glm", "cover_att_point_M0.05"))`. The true bound restored it to `r fmt(gk(ck$gk5, "glm", "cover_att_point_Mtrue"))` (Wilson lower limit `r fmt(gk(ck$gk5, "glm", "cover_att_point_Mtrue", col = "wilson_lo"))`), with intervals `r fmt(ck$width_ratio, 0)` times as wide as at $M=0$ (mean width `r fmt(gk(ck$gk5, "glm", "width_point_Mtrue"), 2)` against `r fmt(gk(ck$gk5, "glm", "width_point_M0"), 2)`).
+
+In the range design, treating the reliability as unknown protected against this error, but only because of the shape of the curve. Interval (6) with $M=0$ covered the ATT in `r crng("cover_att_outer_M0", "gauss_range")` of replicates, with mean width `r fmt(gr(ck$gr1, "glm", "width_outer_M0"), 2)` at $n=1{,}000$ and `r fmt(gr(ck$gr5, "glm", "width_outer_M0"), 2)` at $n=5{,}000$ (parametric learner). The pointwise interval at $t^*$ with $M=0$ covered it in only `r fmt(gr(ck$gr5, "glm", "cover_att_point_M0"))` at $n=5{,}000$. The quadratic falls below $\tau$ between $t^*$ and $-1$, so its range on $[-1,0]$ contains $\tau$. In the known-reliability design the range of $q_2$ excludes $\tau$, and the same interval at $M=0$ covered it in `r fmt(gk(ck$gk5, "glm", "cover_att_outer_M0"))` of replicates at $n=5{,}000$.
+
+On the original design, the revised SIMEX reproduced the original SIMEX-lasso on the same samples. Paired differences between their estimates were at most `r fmt(max(abs(fp$est_diff)))` in absolute value (paired MCSE at most `r fmt(max(fp$est_diff_mcse))`), and their coverage differed by `r nm(min(fp$cover_diff))` to `r nm(max(fp$cover_diff))` (MCSE about 0.01). The bias of the revised estimator against the sample ATT was `r nm(dg(cx6(1000), "bias_att"))` and `r nm(dg(cx6(5000), "bias_att"))` at reliability 0.6 with $n=1{,}000$ and $5{,}000$, and `r nm(dg(cx75, "bias_att"))` at reliability 0.75 with $n=1{,}000$. On the same replicates, lasso DR-DiD had bias `r nm(dg(cx6(1000), "bias_att", arm = "production_dml_lasso"))`, `r nm(dg(cx6(5000), "bias_att", arm = "production_dml_lasso"))` and `r nm(dg(cx75, "bias_att", arm = "production_dml_lasso"))`. The ratio of mean SE to empirical SD was `r crng("se_ratio", "dgp_simex", d = 2)`, and coverage at $M=0$ was `r crng("cover_att_point_M0", "dgp_simex")`. The remaining bias was smaller at $n=5{,}000$ than at $n=1{,}000$, so part of it is finite-sample bias rather than extrapolation error, which does not depend on $n$. At reliability 0.6, the worst-case extrapolation bias for $M=0.05$ adds $0.05\times21/22\approx0.048$ to each side of the interval, `r fmt(widen(1000), 0)`% of the $M=0$ width at $n=1{,}000$ and `r fmt(widen(5000), 0)`% at $n=5{,}000$. With it, coverage was `r crng("cover_att_point_M0.05", "dgp_simex")` across the three cells. The estimated range of the curve over $[-1,0]$ contained the sample ATT in only `r crng("att_in_estimated_range", "dgp_simex")` of replicates, whereas interval (6) at $M=0$ covered it in `r crng("cover_att_outer_M0", "dgp_simex")`. An estimated range is not a confidence interval, and Section \ref{sec:error} explains why it is not the identified set either. In the original study, the estimated ranges of SIMEX-lasso and SIMEX-boosting contained the sample ATT in only `r with(ex$prod$range, fmt(set_inclusion[cell_id=="x_classical__r0.60__nonlinear__N5000" & estimator=="bounds_lasso"]))` and `r with(ex$prod$range, fmt(set_inclusion[cell_id=="x_classical__r0.60__nonlinear__N5000" & estimator=="bounds_xgb"]))` of replicates at reliability 0.6 with nonlinear trends and $n=5{,}000$ (Appendix \ref{app:origtables}).
+
+```{r confirm}
+st_lab <- c(gauss_known = "Closed form, reliability 0.6 known",
+            gauss_range = "Closed form, reliability 0.75, treated as unknown in [0.6, 1]",
+            dgp_simex = "Original design, classical error, nonlinear trends",
+            bihs_semi = "BIHS semi-synthetic, reliability 0.7")
+cnt <- function(x) formatC(as.integer(x), big.mark = ",", format = "d")
+design_lab <- function(st, ce) if (startsWith(ce, "gauss")) sprintf("$n=%s$", gsub(",", "{,}", cnt(sub(".*_n", "", ce)))) else
+  if (st == "dgp_simex") sprintf("$r=%g$, $n=%s$", as.numeric(sub(".*__r([0-9.]+)__.*", "\\1", ce)), gsub(",", "{,}", cnt(sub(".*__N", "", ce)))) else
+  "villages resampled"
+ct <- cf$long |>
+  filter(arm %in% c("fixed", "fold"), metric %in% c("bias_att", "se_ratio", "cover_q2_calaware", "cover_att_point_M0",
+                                                     "cover_att_point_M0.05", "cover_att_outer_M0", "calibration_var_share")) |>
+  mutate(val = case_when(metric == "bias_att" ~ sprintf("%s (%s)", fmt(value), fmt(mcse)),
+                         metric == "calibration_var_share" & arm == "fixed" ~ "--",
+                         metric == "calibration_var_share" ~ fmt(100 * value, 2),
+                         metric == "se_ratio" ~ fmt(value, 2),
+                         TRUE ~ fmt(value))) |>
+  select(study, cell, learner, arm, metric, val) |>
+  pivot_wider(names_from = metric, values_from = val, values_fill = "--") |>
+  arrange(match(study, names(st_lab)), cell, learner, arm) |>
+  mutate(Design = mapply(design_lab, study, cell),
+         Design = ifelse(study %in% c("gauss_known", "gauss_range"),
+                         paste0(Design, ", ", ifelse(learner == "glm", "parametric", "lasso")), Design),
+         Design = ifelse(arm == "fixed", Design, ""), Calib. = ifelse(arm == "fixed", "known", "cross-fitted"))
+groups <- table(factor(st_lab[ct$study], levels = st_lab))
+ct <- ct |> select(Design, Calib., bias_att, se_ratio, cover_q2_calaware, cover_att_point_M0,
+                   cover_att_point_M0.05, cover_att_outer_M0, calibration_var_share)
+kbl2(ct, font = 7.5, escape = FALSE, align = "llrrrrrrr",
+     col.names = c("Design", "Calib.", "Bias (MCSE)", "SE/SD", "$q_2(t^*)$", "$M=0$", "$M=0.05$", "$M=0$", "Share (\\%)"),
+     "Inference for the revised SIMEX (first amendment), 500 replicates per cell. The error covariance is either known or estimated by cross-fitted calibration, and both arms share data and folds. Bias is against the sample ATT, which is 0.5 in the closed-form designs and 0.25 in the semi-synthetic one. SE/SD is the mean SE with the first-step adjustment over the empirical SD. The coverage columns give the pointwise interval for $q_2(t^*)$ (closed form only), interval (5) at $t^*$ for two values of $M$, and interval (6). The last column is the variance of the first-step adjustment as a percentage of the variance of the combined influence value, averaged over replicates. At coverage 0.95 the MCSE is about 0.01, and Wilson intervals are in Figure \\ref{fig:confirmcov}.") |>
+  add_header_above(c(" " = 4, "Curve" = 1, "ATT, interval (5)" = 2, "ATT, (6)" = 1, "First step" = 1)) |>
+  add_header_above(c(" " = 2, "Estimate" = 2, "Coverage" = 4, " " = 1)) |>
+  pack_rows(index = groups)
+```
+
+```{r confirmcov, fig.cap="Inference for the revised SIMEX. Coverage of each target by the interval built for it, with Wilson 95\\% intervals over 500 replicates. The dashed line is at 0.95. Rows are studies and columns are a target and an interval. The quadratic $q_2$ and the true $M$ are known only in the closed-form designs, and the first two columns use a narrower coverage scale. The pointwise interval for $q_2(t^*)$ uses the SE with the first-step adjustment. The known covariance (circles) and cross-fitted calibration (triangles) share data and folds.", out.width="100%"}
+knitr::include_graphics("figures/fig_confirm_coverage.pdf")
+```
+
+For regression calibration, the third amendment uses the covariate-shape design of Section \ref{sec:designs} with $n\in\{1000,5000\}$. Treating the calibration as fixed understates the variance of regression calibration, and the first-step adjustment of Proposition \ref{prop:rcfold} removes most of the shortfall where the target of regression calibration is the ATT (Figure \ref{fig:rccov}). In the Gaussian cells, the adjustment carried `r pr(gc, "rc_fold", "calibration_var_share", 0)`% of the variance of the combined influence value. With the lasso learner, a lasso on the covariates and their squares (the lasso with squares), coverage rose from `r srng(gc, "rc_fold", "cover_att_fixedse")` with the SE that treats the calibration as fixed to `r srng(gc, "rc_fold", "cover_att")` with the first-step adjustment. At $n=5{,}000$ it was `r srng(gc5, "rc_fold", "cover_att")`, with a ratio of mean SE to empirical SD of `r srng(gc5, "rc_fold", "se_ratio", d = 2)`. With the parametric learner, for which the gradient in (C.18) is exact, coverage was `r fmt(sv("gauss_linear_n1000", "rc_fold", "cover_att", le = "glm"))` at $n=1{,}000$ and `r fmt(sv("gauss_linear_n5000", "rc_fold", "cover_att", le = "glm"))` at $n=5{,}000$.
+
+The first-step adjustment is much larger for regression calibration than for SIMEX, whose adjustment carried at most `r fmt(100 * sx_share, 1)`% of the variance in any cell of the third amendment and `r fmt(simex_share("all"), 1)`% in any cell of the first to fifth. Regression calibration estimates more of the calibration. SIMEX needs only the error variance $s$, whereas regression calibration also needs the mean and covariance of $Z$ within each treatment group, which fix the slope of its predictor. After the study, we split the first-step adjustment by component in the closed-form design at $n=200{,}000$. Relative to the variance of the DR-DiD influence value, the group-covariance part contributed `r vshare("linear", "cov")`%, the group-mean part `r vshare("linear", "mean")`% and the error-variance part `r vshare("linear", "s")`% with a linear trend and the parametric learner. With a quadratic trend and the lasso learner, the shares were `r vshare("quad", "cov")`%, `r vshare("quad", "mean")`% and `r vshare("quad", "s")`%. The parts are correlated, so these shares do not add up to the adjustment's total.
+
+Some under-coverage remains at $n=1{,}000$, where the ratio of mean SE to empirical SD was `r srng(gc1, "rc_fold", "se_ratio", d = 2)`. Outliers do not explain it, because the excess kurtosis of the estimates was `r nm(vt_k[1], 2)` to `r nm(vt_k[2], 2)`. The higher-order terms of the calibration, which the first-order expansion omits and which matter with about 400 treated units per sample, may explain it, but we have not verified this. Where the conditions of Proposition \ref{prop:rcfold} fail, the adjustment does not rescue the intervals. In the log-normal cells, where no polynomial learner is consistent for the control regression, the ratio of mean SE to empirical SD was `r srng(c(ll, lq1, lq5), "rc_fold", "se_ratio", d = 2)`. In the three cells of the original design, where measurement error moved the estimate by only `r fmt(min(abs(dnl)))`--`r fmt(max(abs(dnl)))` (against about 0.4 in the Gaussian cells), the adjustment carried `r fmt(100 * min(dsh), 1)`--`r fmt(100 * max(dsh), 1)`% of the variance and changed coverage by at most `r fmt(max(abs(dcd)))`. The SE with the first-step adjustment costs no extra fit, because it uses the saved influence values and the gradient of the fitted outcome regression.
+
+```{r rccov, fig.cap="Coverage of the ATT by regression calibration with cross-fitted calibration, with the SE that treats the calibration as fixed (triangles) and with the SE that includes the first-step adjustment of Proposition \\ref{prop:rcfold} (circles). Wilson 95\\% intervals over 500 replicates per cell. The dashed line is at 0.95. The Gaussian and log-normal cells at reliability 0.6 and at reliability 0.9 are those of Sections \\ref{sec:inference} and \\ref{sec:accuracy}, and the original-design cells have classical error and nonlinear trends.", out.width="100%"}
+knitr::include_graphics("figures/fig_rc_coverage.pdf")
+```
+
+## Accuracy under classical error {#sec:accuracy}
+
+In the original study, classical covariate error biased every adjusted estimator, and the bias grew as reliability fell (Figure \ref{fig:simbias}). The original SIMEX corrections roughly halved the bias of their naive counterparts but did not remove it. Paired on the same replicates at reliability 0.6, $n=5{,}000$ and nonlinear trends, SIMEX-lasso reduced the mean squared error by `r with(ex$prod$paired, fmt(-mse_difference[cell_id=="x_classical__r0.60__nonlinear__N5000" & corrected=="simex_lasso" & basis=="clean"]*1e3, 2))` $\times10^{-3}$ (paired MCSE `r with(ex$prod$paired, fmt(mse_difference_mcse[cell_id=="x_classical__r0.60__nonlinear__N5000" & corrected=="simex_lasso" & basis=="clean"]*1e3, 2))` $\times10^{-3}$). The remaining bias is the extrapolation error that Section \ref{sec:biasint} bounds.
+
+```{r simbias, fig.cap="Bias under classical covariate error in the original study, by reliability. A reliability of 1 is the error-free baseline cell, which was generated with different seeds and so is not paired with the error cells. Error bars are $\\pm2$ MCSE over 500 replicates. Dashed lines are the original SIMEX corrections with known reliability.", out.width="100%"}
+knitr::include_graphics("figures/fig_sim_bias.pdf")
+```
+
+The same-sample comparison shows that the bias due to measurement error barely depended on the learner. With $n=5{,}000$, the difference between DR-DiD fitted to the error-prone covariates and to the true covariates of the same replicates was `r gap(oc_x[2], "dml_lasso")` for the lasso and `r gap(oc_x[2], "dml_xgb")` for boosting under classical error at reliability 0.6 with nonlinear trends, and `r gap(oc_x[1], "dml_lasso")` and `r gap(oc_x[1], "dml_xgb")` with linear trends. Under large misclassification it was between `r nm(min(og$value[og$cell %in% oc_m]))` and `r nm(max(og$value[og$cell %in% oc_m]))`. Paired MCSEs were at most `r fmt(max(og$mcse), 4)`. Boosting's additional bias, `r nm(co(oc_x[2], "dml_xgb", "latent"))` on the true covariates with nonlinear trends, is learner bias that remains without measurement error. On the true covariates, lasso DR-DiD covered the sample ATT in `r orng(ocov(c(oc_x, oc_m), "dml_lasso", "latent"))` of replicates. On the error-prone covariates it covered it in `r orng(ocov(oc_x, "dml_lasso", "observed"))` under covariate error and `r orng(ocov(oc_m, "dml_lasso", "observed"))` under misclassification.
+
+The second amendment, specified after the results of the original study and the first amendment had been seen (Appendix \ref{app:repro}), compares SIMEX with the regression calibration of Section \ref{sec:rcmethod}. In this study the calibration was computed once on the full sample, and the SE treated it as fixed, as the original SIMEX did. Each replicate also refits DR-DiD on the reported covariates (the naive estimator) and on the true covariates.
+
+The comparison ran in three settings. The first is the closed-form design of Section \ref{sec:designs}, where the best linear predictor is the conditional mean, the trend is linear and regression calibration is exact. The second is the twelve classical-error cells of the original study. The third is the two cells with large differential covariate error, where both corrections assume the wrong error model. Seeds and folds match the earlier studies, so every replicate pairs with a saved SIMEX fit. Each cell has 500 replicates. No fit failed, and no latent variance needed the pre-specified floor.
+
+Under classical error in the original design, regression calibration removed the bias due to measurement error, and SIMEX did not (Table \ref{tab:rc}). At reliability 0.6 with nonlinear trends and $n=5{,}000$, the bias against the sample ATT was `r nm(rcd(c6, "naive", "bias_att"))` for the naive estimator, `r nm(rcd(c6, "rc_group", "bias_att"))` after regression calibration, `r nm(rcd(c6, "simex_production", "bias_att"))` for the original SIMEX-lasso and `r nm(rcd(c6, "latent", "bias_att"))` on the true covariates (MCSE at most `r fmt(max(rcL$mcse[rcL$study == "rc_dgp" & rcL$cell == c6 & rcL$metric == "bias_att"]), 4)`). In all twelve cells, the regression-calibrated estimate differed from the estimate on the true covariates of the same replicate by less than two paired MCSEs (largest difference `r fmt(max(abs(p_l$est_diff)), 4)`). Regression calibration also had a smaller mean absolute error than the original SIMEX-lasso in all twelve cells, by `r fmt(min(-p_s$abs_err_diff), 4)` to `r fmt(max(-p_s$abs_err_diff), 4)`, and by more than two paired MCSEs in `r num_word(sum(-p_s$abs_err_diff > 2 * p_s$abs_err_diff_mcse))` of them. The difference averaged `r fmt(mean(-p_s$abs_err_diff[n1k]), 4)` at $n=1{,}000$ and `r fmt(mean(-p_s$abs_err_diff[!n1k]), 4)` at $n=5{,}000$. At $n=1{,}000$, SIMEX had the larger empirical SD in `r of_six(sum(sd1k("simex_production") > sd1k("rc_group")))`. Regression calibration covered the sample ATT in `r dgp_rng("rc_group", "cover_att")` of replicates, against `r dgp_rng("simex_production", "cover_att")` for SIMEX.
+
+In the closed-form design, regression calibration was close to unbiased, with bias `r g_rng("rc_group", "bias_att", signed = TRUE)` (MCSE at most `r fmt(max(rcL$mcse[rcL$study == "rc_gauss" & rcL$method == "rc_group" & rcL$metric == "bias_att"]), 4)`). SIMEX with cross-fitted calibration kept the extrapolation error $q_2(-1)-\tau=0.16$ of Section \ref{sec:inference}, with bias `r g_rng("simex_fold", "bias_att", signed = TRUE)`. The intervals of regression calibration under-covered, however. The SE that treats the calibration as fixed was `r g_rng("rc_group", "se_ratio", d = 2)` of the empirical SD, and coverage was `r g_rng("rc_group", "cover_att")`. At $n=1{,}000$ the empirical SD of the regression-calibrated estimate was `r fmt(rcg("gauss_r0.60_n1000", "rc_group", "emp_sd"))`, against `r fmt(rcg("gauss_r0.60_n1000", "latent", "emp_sd"))` on the true covariates. Its RMSE, `r fmt(rcg("gauss_r0.60_n1000", "rc_group", "rmse"))`, was still below that of SIMEX, `r fmt(rcg("gauss_r0.60_n1000", "simex_fold", "rmse"))`. With cross-fitted calibration, the first-step adjustment of Proposition \ref{prop:rcfold} removes most of this shortfall (Section \ref{sec:inference}).
+
+In these designs regression calibration was the better point correction. It used the same information as SIMEX, needed no extrapolation, and matched the fit on the true covariates. Within each treatment group, the error-prone covariates of the original design are close to Gaussian, which is the case in which regression calibration is exact (Section \ref{sec:gap}). They are drawn as Gaussian, apart from household size, which is a rounded and truncated Gaussian, and treatment depends on them through a logit-linear propensity (Appendix \ref{app:computation}). After the study, we estimated the gap share of each of them within each treatment group, using 20,000 draws per group. At reliability 0.6 the estimated share was at most `r fmt(max(gor$gap_share[gor$covariate != "c4"]), 4)` for the four Gaussian covariates, which is within the resolution of the estimator for Gaussian samples of the same size (at most `r fmt(max(gor$gaussian_resolution), 4)`), and `r fmt(max(gor$gap_share[gor$covariate == "c4"]), 3)` for household size. In the log-normal designs of Section \ref{sec:map} the share is `r fmt(gpm(0.25, 0.6), 3)` to `r fmt(gpm(1, 0.6), 3)` at the same reliability.
+
+```{r rc}
+rc_sel <- data.frame(
+  study = c(rep("rc_gauss", 2), rep("rc_dgp", 4), rep("rc_xnc", 2)),
+  cell = c("gauss_r0.60_n1000", "gauss_r0.60_n5000", "x_classical__r0.60__nonlinear__N1000",
+           "x_classical__r0.60__nonlinear__N5000", "x_classical__r0.75__nonlinear__N5000",
+           "x_classical__r0.90__nonlinear__N5000", "x_nc__large__linear__N5000", "x_nc__large__nonlinear__N5000"),
+  learner = c("glm", "glm", rep("glmnet", 6)),
+  simex = c("simex_fold", "simex_fold", rep("simex_production", 6)),
+  Design = c("Closed form, $n=1{,}000$", "Closed form, $n=5{,}000$", "Classical, $r=0.6$, $n=1{,}000$",
+             "Classical, $r=0.6$, $n=5{,}000$", "Classical, $r=0.75$, $n=5{,}000$", "Classical, $r=0.9$, $n=5{,}000$",
+             "Differential, linear", "Differential, nonlinear"))
+rc_tab <- do.call(rbind, lapply(seq_len(nrow(rc_sel)), function(i) {
+  s <- rc_sel[i, ]; g <- \(me, mt) rv(s$study, s$cell, s$learner, me, mt)
+  data.frame(Design = s$Design,
+             b_n = fmt(g("naive", "bias_att")), b_rc = fmt(g("rc_group", "bias_att")),
+             b_s = fmt(g(s$simex, "bias_att")), b_l = fmt(g("latent", "bias_att")),
+             r_rc = fmt(g("rc_group", "rmse")), r_s = fmt(g(s$simex, "rmse")),
+             c_rc = fmt(g("rc_group", "cover_att")), c_s = fmt(g(s$simex, "cover_att")))
+}))
+mc_max <- function(st) fmt(max(rcL$mcse[rcL$study %in% st & rcL$metric == "bias_att" &
+                                        rcL$cell %in% rc_sel$cell]), 3)
+kbl2(rc_tab, font = 7.5, escape = FALSE, align = "lrrrrrrrr",
+     col.names = c("Design", "Naive", "RC", "SIMEX", "True", "RC", "SIMEX", "RC", "SIMEX"),
+     sprintf(paste("Regression calibration (RC) and SIMEX given the same information (second amendment), 500 replicates per cell.",
+                   "The closed-form rows have reliability 0.6 known, a parametric learner and SIMEX with cross-fitted calibration at $M=0$ (Section \\ref{sec:inference}).",
+                   "The other rows use the original design, the lasso learner and the original SIMEX-lasso. The classical rows have nonlinear trends,",
+                   "and the differential rows have large error and $n=5{,}000$, with both corrections assuming reliability 0.75.",
+                   "Bias is against the sample ATT, and its MCSE is at most %s in the closed-form rows and %s elsewhere. True is the estimator on the true covariates.",
+                   "Coverage of nominal 95\\%% intervals has MCSE of about 0.01 near 0.95. All cells, with paired contrasts, are in Appendix \\ref{app:rc}."),
+             mc_max("rc_gauss"), mc_max(c("rc_dgp", "rc_xnc")))) |>
+  add_header_above(c(" " = 1, "Bias" = 4, "RMSE" = 2, "Coverage" = 2))
+```
+
+The covariate-shape design of the third amendment (Section \ref{sec:designs}) asks whether the ranking survives a design in which the linear predictor of regression calibration is not the conditional mean. By Proposition \ref{prop:gap}, the calibration gap is zero in its Gaussian cells and not in its log-normal cells. Both corrections use cross-fitted calibration, the lasso with squares as the learner, and the known reliability 0.6 (Table \ref{tab:shape}).
+
+Where its linear predictor was the conditional mean, regression calibration was again the better correction. In the four Gaussian cells its bias ranged from `r srng(gc, "rc_fold", "bias_att", signed = TRUE)` (MCSE at most `r fmt(mx(gc, "rc_fold", "bias_att", "mcse"), 4)`), while SIMEX's ranged from `r srng(gc, "simex_fold", "bias_att", signed = TRUE)`, the extrapolation error of the quadratic. With log-normal covariates and a linear trend, regression calibration was close to unbiased, with bias `r nm(sv(ll[1], "rc_fold", "bias_att"))` at $n=1{,}000$ and `r nm(sv(ll[2], "rc_fold", "bias_att"))` (MCSE `r fmt(sv(ll[2], "rc_fold", "bias_att", col = "mcse"))`) at $n=5{,}000$. SIMEX's bias in those two cells was `r nm(sv(ll[1], "simex_fold", "bias_att"))` and `r nm(sv(ll[2], "simex_fold", "bias_att"))`. Across these six cells, regression calibration had the smaller mean absolute error, by `r fmt(min(aed))` to `r fmt(max(aed))` (paired MCSE at most `r fmt(max(aem))`).
+
+Skewed covariates combined with a nonlinear trend broke both corrections, in opposite directions. With log-normal covariates and a quadratic trend, the bias of regression calibration was `r nm(sv(lq1, "rc_fold", "bias_att"))` at $n=1{,}000$ and `r nm(sv(lq5, "rc_fold", "bias_att"))` at $n=5{,}000$, and that of SIMEX was `r nm(sv(lq1, "simex_fold", "bias_att"))` and `r nm(sv(lq5, "simex_fold", "bias_att"))`. The ATT is 0.5, and the naive bias was `r nm(sv(lq1, "naive", "bias_att"))` and `r nm(sv(lq5, "naive", "bias_att"))`. SIMEX had the smaller mean absolute error at $n=5{,}000$, by `r fmt(sp(lq5, "rc_fold - simex_fold", "abs_err_diff"))` (paired MCSE `r fmt(sp(lq5, "rc_fold - simex_fold", "abs_err_diff_mcse"))`). At $n=1{,}000$ the difference was `r fmt(sp(lq1, "rc_fold - simex_fold", "abs_err_diff"))` (`r fmt(sp(lq1, "rc_fold - simex_fold", "abs_err_diff_mcse"))`), and the empirical SD of regression calibration was `r fmt(sv(lq1, "rc_fold", "emp_sd"), 2)`. Neither interval was reliable in these cells. Regression calibration covered the ATT in `r fmt(sv(lq1, "rc_fold", "cover_att"))` and `r fmt(sv(lq5, "rc_fold", "cover_att"))` of replicates. SIMEX covered it in `r fmt(sv(lq1, "simex_fold", "cover_att"))` and `r fmt(sv(lq5, "simex_fold", "cover_att"))` at $M=0$, and in `r fmt(sv(lq1, "simex_fold", "cover_att_M0.05"))` and `r fmt(sv(lq5, "simex_fold", "cover_att_M0.05"))` at $M=0.05$.
+
+```{r shape}
+sh_tab <- do.call(rbind, lapply(seq_len(nrow(shp_cells)), function(i) {
+  ce <- shp_cells$cell[i]; g <- \(me, mt) sv(ce, me, mt)
+  data.frame(Design = sprintf("%s, $n=%s$", ifelse(shp_cells$trend[i] == "linear", "linear", "quadratic"),
+                              gsub(",", "{,}", big(shp_cells$n[i]))),
+             b_n = fmt(g("naive", "bias_att")), b_rc = fmt(g("rc_fold", "bias_att")),
+             b_s = fmt(g("simex_fold", "bias_att")), b_l = fmt(g("latent", "bias_att")),
+             r_rc = fmt(g("rc_fold", "rmse")), r_s = fmt(g("simex_fold", "rmse")),
+             c_rc = fmt(g("rc_fold", "cover_att")), c_rcf = fmt(g("rc_fold", "cover_att_fixedse")),
+             c_s = fmt(g("simex_fold", "cover_att")), c_s5 = fmt(g("simex_fold", "cover_att_M0.05")))
+}))
+sh_mc <- max(a3L$mcse[a3L$study == "shape" & a3L$learner == "glmnet" & a3L$metric == "bias_att"])
+kbl2(sh_tab, font = 7.2, escape = FALSE, align = "lrrrrrrrrrr",
+     col.names = c("Design", "Naive", "RC", "SIMEX", "True", "RC", "SIMEX", "RC", "RC, fixed", "$M=0$", "$M=0.05$"),
+     sprintf(paste("Covariate shape and trend (third amendment). Regression calibration (RC) and SIMEX, both with cross-fitted calibration,",
+                   "use the same information, the lasso learner and reliability 0.6 known, with 500 replicates per cell. Bias is against the ATT, 0.5,",
+                   "and its MCSE is at most %s. True is the estimator on the true covariates. RC coverage uses the SE with the first-step adjustment of Proposition \\ref{prop:rcfold}",
+                   "or the SE that treats the calibration as fixed. SIMEX coverage uses interval (5) with the SE with the first-step adjustment.",
+                   "Coverage near 0.95 has MCSE of about 0.01. All metrics and paired contrasts are in Appendix \\ref{app:shape}."),
+             fmt(sh_mc, 3))) |>
+  add_header_above(c(" " = 1, "Bias" = 4, "RMSE" = 2, "Coverage, RC" = 2, "Coverage, SIMEX" = 2)) |>
+  pack_rows(index = c("Gaussian covariates" = 4, "Log-normal covariates" = 4))
+```
+
+The fourth amendment ran a design chosen because population calculations made before the study put the target of regression calibration further from the ATT than SIMEX's. Those calculations were later corrected numerically (Appendix \ref{app:repro}), and the corrected values in Section \ref{sec:map} keep the ordering. The true covariates are log-normal with skewness 6.2, and the reliability is 0.9. The amendment also adds a learner close to the nonparametric regressions that the calculations assume, the lasso on natural splines with five degrees of freedom in each continuous covariate. With this spline lasso, a linear trend and $n=5{,}000$, regression calibration had bias `r nm(s4(l9, "glmnet_ns", "rc_fold", "bias_att"))` and SIMEX `r nm(s4(l9, "glmnet_ns", "simex_fold", "bias_att"))` (MCSE at most `r fmt(max(s4(l9, "glmnet_ns", "rc_fold", "bias_att", "mcse"), s4(l9, "glmnet_ns", "simex_fold", "bias_att", "mcse")))`), against population values of `r nm(pmv(1, 0.9, 0, "rc"))` and `r nm(pmv(1, 0.9, 0, "simex"))`. SIMEX had the smaller mean absolute error, by `r fmt(p4(l9, "glmnet_ns", "rc_fold - simex_fold", "abs_err_diff"))` (paired MCSE `r fmt(p4(l9, "glmnet_ns", "rc_fold - simex_fold", "abs_err_diff_mcse"))`). Neither interval was reliable. Regression calibration covered the ATT in `r fmt(s4(l9, "glmnet_ns", "rc_fold", "cover_att"))` of replicates, and SIMEX in `r fmt(s4(l9, "glmnet_ns", "simex_fold", "cover_att"))` at $M=0$ and `r fmt(s4(l9, "glmnet_ns", "simex_fold", "cover_att_M0.05"))` at $M=0.05$. The bound $M=0.05$ is too small for this design. The population extrapolation error of SIMEX is `r fmt(pmv(1, 0.9, 0, "simex"))`, and by the Peano bound the third derivative of its curve must then exceed `r fmt(pmv(1, 0.9, 0, "simex") * 22 / 21, 3)` somewhere on $[-1,2]$.
+
+## Dependence on the outcome learner {#sec:learner}
+
+On the data of the fourth amendment's linear cell with $n=5{,}000$, the learner decided which correction was more accurate. With the lasso with squares, regression calibration had bias `r nm(s4(l9, "glmnet", "rc_fold", "bias_att"))` and SIMEX `r nm(s4(l9, "glmnet", "simex_fold", "bias_att"))`, and regression calibration had the smaller mean absolute error, by `r fmt(-p4(l9, "glmnet", "rc_fold - simex_fold", "abs_err_diff"))` (paired MCSE `r fmt(p4(l9, "glmnet", "rc_fold - simex_fold", "abs_err_diff_mcse"))`). Corollary \ref{cor:rcbias} explains the difference. The spline lasso learns the control group's calibration gap and evaluates it at the treated units' calibrated points. The gap is uncorrelated with linear functions of the observed covariates, so a learner close to linear in the calibrated covariates largely ignores it. In the Gaussian cell at reliability 0.9, where the gap is zero, regression calibration had bias `r nm(s4(g9, "glmnet", "rc_fold", "bias_att"))` and SIMEX `r nm(s4(g9, "glmnet", "simex_fold", "bias_att"))` (MCSE at most `r fmt(max(s4(g9, "glmnet", "rc_fold", "bias_att", "mcse"), s4(g9, "glmnet", "simex_fold", "bias_att", "mcse")), 4)`).
+
+With the spline lasso and a quadratic trend, the cell measured a failure of the learner rather than of either correction. In `r t4(q9, "glmnet_ns", "latent", "n_abs_err_gt1")` of 500 replicates, the estimator on the true covariates erred by more than 1, and its RMSE was `r fmt(s4(q9, "glmnet_ns", "latent", "rmse"), 2)`. A diagnostic run after the study traced these errors to controls whose $W_1$ lay far above the largest value in the training folds, where the spline lasso extrapolates badly and the propensity reaches its clipping bound (Appendix \ref{app:a45}). In the worst replicate, one control with $W_1=`r fmt(r389$top_w1[r389$fold == r389k], 1)`$, against a training maximum of `r fmt(r389$train_max_w1[r389$fold == r389k], 1)`, moved the estimate to `r nm(mean(r389$tau_fold), 1)`. The median errors, which were not a pre-specified metric, were `r nm(t4(q9, "glmnet_ns", "rc_fold", "median_err"))` for regression calibration, `r nm(t4(q9, "glmnet_ns", "simex_fold", "median_err"))` for SIMEX and `r nm(t4(q9, "glmnet_ns", "latent", "median_err"))` on the true covariates.
+
+A fifth amendment refitted the three spline cells with each covariate clamped to its training range before the spline basis is evaluated, so both nuisance fits are constant beyond that range. Clamping bounds the propensity of such a unit but not its outcome residual. In the quadratic cell, `r c5(q9, "latent", "n_big_new")` replicates still gave the estimator on the true covariates an error above 1, and the RMSE of regression calibration fell from `r fmt(c5(q9, "rc_fold", "rmse_old"), 2)` to `r fmt(c5(q9, "rc_fold", "rmse_new"), 2)`. In the linear cell at $n=5{,}000$, the mean error of regression calibration became `r nm(c5(l9, "rc_fold", "mean_err_new"))` and that of SIMEX `r nm(c5(l9, "simex_fold", "mean_err_new"))`, so the ranking stood. The fourth amendment's fits therefore remain the primary results, and the fifth amendment is a sensitivity analysis.
+
+## Differential covariate error {#sec:differential}
+
+When the covariate error is differential with respect to treatment, both corrections assume the wrong error model. In the original study, with large error, nonlinear trends and $n=5{,}000$, SIMEX-lasso increased the bias of lasso DR-DiD from `r v(xnci, "dml_lasso")` to `r v(xnci, "simex_lasso")`, and its coverage was `r v("x_nc__large__nonlinear__N5000","simex_lasso","coverage")`, with a Wilson upper limit of `r v("x_nc__large__nonlinear__N5000","simex_lasso","cov_wilson_hi")`. In the second amendment, both corrections moved the estimate further from the ATT under large differential covariate error. With linear trends the bias was `r nm(rcx("linear", "naive", "bias_att"))` for the naive estimator, `r nm(rcx("linear", "rc_group", "bias_att"))` after regression calibration and `r nm(rcx("linear", "simex_production", "bias_att"))` for SIMEX-lasso. With nonlinear trends it was `r nm(rcx("nonlinear", "naive", "bias_att"))`, `r nm(rcx("nonlinear", "rc_group", "bias_att"))` and `r nm(rcx("nonlinear", "simex_production", "bias_att"))`. No correction covered the ATT in more than `r fmt(max(rcL$value[rcL$study == "rc_xnc" & rcL$method %in% c("rc_group", "simex_production") & rcL$metric == "cover_att"]))` of replicates. Regression calibration had the larger mean absolute error of the two corrections in both cells, by `r with(rcP[rcP$study == "rc_xnc" & rcP$contrast == "RC - production SIMEX-lasso", ], paste(fmt(min(abs_err_diff), 3), "and", fmt(max(abs_err_diff), 3)))` (paired MCSE at most `r fmt(max(rcP$abs_err_diff_mcse[rcP$study == "rc_xnc" & rcP$contrast == "RC - production SIMEX-lasso"]), 3)`). It also clipped a median of `r fmt(100 * rcx("nonlinear", "rc_group", "median_clip_frac"), 0)`% of propensities, against `r fmt(100 * rcx("nonlinear", "naive", "median_clip_frac"), 1)`% for the naive estimator (nonlinear trends). Calibration within groups shrinks each group's covariates towards its own mean, and the differential error has shifted the treated group's mean, so the shrinkage separates the groups further.
+
+## Bias-aware critical values {#sec:biasaware}
+
+```{r ak-text, include=FALSE}
+akc <- ex$ak$confirm; akt <- ex$ak$trueM; aka <- ex$ak$amend
+akc5 <- akc[akc$M == 0.05 & akc$arm == "fold", ]
+ok_st <- c("dgp_simex", "bihs_semi")                       # designs where M = 0.05 was large enough
+pct <- \(x) paste0(fmt(100 * (1 - max(x)), 0), "--", fmt(100 * (1 - min(x)), 0))
+gk5 <- akc5[akc5$study == "gauss_known" & akc5$cell == "gauss_r0.60_n5000" & akc5$learner == "glm", ]
+```
+
+After all studies had been seen, we recomputed every SIMEX interval at $M=0.05$ with the bias-aware critical value of Section \ref{sec:biasint}. The recomputation uses the saved estimates and standard errors, and it reproduces the saved intervals (5) to within $10^{-8}$. The resulting intervals were `r pct(akc5$width_ratio)`% shorter than interval (5) in the first amendment's cells and `r pct(aka$width_ratio)`% shorter in the later amendments' cells.
+
+Where $M=0.05$ was large enough, the shorter interval was closer to the nominal level. In the original and semi-synthetic designs, interval (5) covered the sample ATT in `r orng(akc5$cover_add[akc5$study %in% ok_st])` of replicates and the interval with the bias-aware critical value in `r orng(akc5$cover_ak[akc5$study %in% ok_st])`. Where $M=0.05$ was too small, both intervals under-covered, and the shorter one more so. In the closed-form design with known reliability at $n=5{,}000$, coverage fell from `r fmt(gk5$cover_add)` to `r fmt(gk5$cover_ak)` (parametric learner). At the true $M$ of the closed-form designs both intervals covered the ATT in every replicate, because there the worst-case bias $M\kappa(t^*)$ is much larger than the actual extrapolation error, and the two intervals differed in width by at most `r fmt(100 * (1 - min(akt$width_ratio)), 0)`%. The bias-aware critical value is therefore the better default whenever $M$ is believed, but it does not make the choice of $M$ any easier. For the application, Section \ref{sec:app} reports the breakdown value of $M$ instead of a single interval.
+
+# Illustration with the Bangladesh Integrated Household Survey {#sec:app}
+
+The BIHS is a three-round panel (2011–12, 2015, 2018–19) of rural households, nationally representative of rural Bangladesh. We use the raw rounds to ask whether children who began receiving the primary stipend between the first two rounds accumulated more schooling by the third. The purpose is to show the two corrections and their diagnostics on real covariates. The design limits what the estimates can mean, and we state those limits first.
+
+*Cohort and exposure.* We followed children aged 6–10 in round 1 who attended school in 2011 and had an education-module record showing no stipend (programme code 5, the 100/125 taka primary stipend) currently or before 2011. We linked them by household and member identifiers to the same household lines in rounds 2 and 3, requiring consistent sex and plausible ageing. Exposure is current stipend receipt in 2015. The comparison group reports no stipend currently or before 2015. The outcome is the 2011–2018 gain in completed years of schooling. Table \ref{tab:flow} shows the sample flow. The analytic cohort has `r big(tail(ex$app$flow$children, 1))` children in `r big(tail(ex$app$flow$households, 1))` households and `r tail(ex$app$flow$clusters, 1)` villages, of whom `r ex$app$overlap$n[ex$app$overlap$group=="treated" & ex$app$overlap$sample=="analytic cohort"]` were treated.
+
+```{r flow}
+fw <- ex$app$flow; names(fw) <- c("Step", "Children", "Households", "Villages")
+fw$Step <- gsub("([0-9])-([0-9])", "\\1--\\2", paste0(toupper(substr(fw$Step, 1, 1)), substring(fw$Step, 2)))
+fw[2:4] <- lapply(fw[2:4], big)
+kbl2(fw, "Sample flow from the round-1 roster to the analytic cohort.", align = "lrrr")
+```
+
+*Why this is an illustration.* Among linked children without a stipend by 2011, all `r with(ex$app$receipt, children[hist15=="current stipend 2015" & enrolled_now15 %in% 1])` who reported current receipt in 2015 were attending school in 2015, while `r with(ex$app$receipt, children[hist15=="no stipend 2015" & enrolled_now15 %in% 0])` comparison children were not. Receipt is conditional on attendance, so the exposure is recorded together with an outcome-related variable (Figure \ref{fig:appdag}). The estimates below are adjusted contrasts under conditional parallel trends in schooling gains, not effects of the stipend. Restricting the comparison group to children attending in 2015 removes the mechanical part of the contrast but conditions on a post-baseline variable, and we report both samples.
+
+```{=latex}
+\begin{figure}[tb]
+\centering
+\tikzset{v/.style={draw, circle, minimum size=8mm, inner sep=0.5pt, font=\small, line width=0.5pt},
+         lat/.style={v, fill=gray!25},
+         obs/.style={v, fill=white},
+         arr/.style={-{Stealth[length=2.2mm, width=1.7mm]}, line width=0.6pt, shorten >=0.6pt, shorten <=0.6pt}}
+\begin{tikzpicture}[x=1cm, y=1cm]
+\node[lat] (W) at (0, 2.1) {$W$};
+\node[obs] (V) at (0, 0.9) {$V$};
+\node[draw, dashed, rounded corners=2pt, inner sep=4pt, fit=(W) (V), label={[font=\scriptsize]below:$X$, 2011}] (X) {};
+\node[obs] (Ws) at (-1.7, 2.1) {$W^*$};
+\node[lat] (A) at (2.4, 1.5) {$A$};
+\node[obs] (R) at (5.0, 1.5) {$R$};
+\node[obs] (Y) at (3.7, 3.0) {$Y$};
+\node[obs] (As) at (3.7, 0.0) {$A^*$};
+\draw[arr] (W) -- (Ws);
+\draw[arr] (X.east |- A) -- (A);
+\draw[arr] (X.north east) -- (Y);
+\draw[arr] (X.south east) .. controls (2.5, -1.4) and (5.3, -1.2) .. (R.south);
+\draw[arr] (A) -- (R);
+\draw[arr] (A) -- (Y); \draw[arr] (R) -- (Y);
+\draw[arr] (A) -- (As); \draw[arr] (R) -- (As);
+\end{tikzpicture}
+\caption{Causal structure of the BIHS illustration. Grey nodes are latent. The baseline covariates $X=(W,V)$ are measured in 2011. Log assets and log land, $W$, are observed only through the reports $W^*$, and the other covariates, $V$, are taken as exact. The exposure $A$ is the start of the primary stipend between 2011 and 2015. The node $R$ is attendance at school in 2015, $Y$ the gain in completed schooling from 2011 to 2018, and $A^*$ the receipt reported in 2015. A stipend is reported only for children who attend school, so $A^*$ depends on $R$, which also affects $Y$. Comparing children by $A^*$ therefore mixes the effect of $A$ with the link between attendance and later schooling, and restricting the sample to children attending in 2015 conditions on $R$, which $A$ affects.}\label{fig:appdag}
+\end{figure}
+```
+
+*Covariates and measurement.* The baseline covariates are the child's age and sex, household size, the number of children aged 5–15, the highest adult schooling, the head's sex, age and schooling, the division, the log of the current value of owned assets and the log of owned land area. The last two are reported quantities with plausible error, and we treat them as error-prone. We have no validation data for them, so their reliability is a sensitivity parameter, and we report both corrections for reliabilities from 1 to 0.6. Standard errors cluster by village, and cross-fitting assigns whole villages to five folds (Proposition \ref{prop:cluster}). Survey weights are not used, so the target is the unweighted ATT in the analytic cohort.
+
+*Overlap.* Cross-fitted lasso propensities ranged from `r fmt(ex$app$overlap$ps_p01[2], 3)` (1st percentile, comparison group) to `r fmt(max(ex$app$overlap$ps_p99[1:2]), 3)` (99th percentile). Less than 0.2% of propensities were clipped, and the effective sample size of the comparison weights was `r fmt(ex$app$overlap$control_weight_ess[2], 0)`. Weighted standardised differences are in Appendix \ref{app:appdoc}.
+
+```{r appest}
+ae2 <- ex$app$est |> filter(!grepl("^SIMEX", method)) |>
+  mutate(Sample = ifelse(sample == "analytic cohort", "Analytic cohort", "Attending in 2015"),
+         Method = recode(method, "Lasso DR-DiD (cross-fit)" = "Lasso DR-DiD", "Boosted DR-DiD (cross-fit)" = "Boosted DR-DiD"),
+         `Estimate (SE)` = sprintf("%s (%s)", fmt(estimate), fmt(se)),
+         `95% interval` = sprintf("[%s, %s]", fmt(ci_lo), fmt(ci_hi))) |>
+  select(Sample, Method, `Estimate (SE)`, `95% interval`)
+kbl2(ae2, "Contrasts without a measurement-error correction, in completed school years, 2011--2018. Lasso and boosted DR-DiD are cross-fitted. Standard errors are clustered by village.") |>
+  collapse_rows(1, latex_hline = "major", valign = "top")
+```
+
+*Estimates without correction.* The unadjusted contrast was `r app_est("Unadjusted DiD")` years. With adjustment it was `r app_est("Parametric DR-DiD")` with parametric DR-DiD and `r app_est("Lasso DR-DiD (cross-fit)")` with lasso DR-DiD (Table \ref{tab:appest}). Treated children were younger than the comparison group (standardised difference $-0.75$) and came from households with fewer assets ($-0.30$) and less land ($-0.31$). Weighting by the propensity odds reduced every standardised difference to at most 0.12 in absolute value (Appendix \ref{app:appdoc}). In the subsample attending in 2015, the lasso contrast was smaller, `r app_est("Lasso DR-DiD (cross-fit)", "attending in 2015 (conditions on a post-baseline variable)")`.
+
+```{r app-text, include=FALSE}
+arc <- ex$app$rc; agp <- ex$app$gap; akb <- ex$ak$breakdown
+rcv <- function(r, meth, col) arc[[col]][arc$reliability == r & arc$method == meth]
+sxv <- function(r, col) ae[[col]][ae$sample == "analytic cohort" & ae$method == sprintf("SIMEX-lasso, reliability %.1f (M = 0)", r)]
+bd <- function(r, col) akb[[col]][akb$sample == "analytic cohort" & akb$reliability == r]
+gv <- function(r, v, a, col = "gap_share") agp[[col]][agp$reliability == r & agp$covariate == v & agp$group == a]
+gres <- function(n, r, col) { G <- ex$popmap$resolution; G[[col]][G$n == n & G$reliability == r] }
+```
+
+```{r appcorr}
+R_APP <- c(0.9, 0.8, 0.7, 0.6)
+es <- \(e, s) sprintf("%s (%s)", fmt(e), fmt(s))
+ct <- data.frame(Reliability = fmt(R_APP, 1),
+  rc = vapply(R_APP, \(r) es(rcv(r, "Regression calibration", "estimate"), rcv(r, "Regression calibration", "se")), ""),
+  rcf = vapply(R_APP, \(r) fmt(rcv(r, "Regression calibration", "se_fixed")), ""),
+  sx = vapply(R_APP, \(r) es(sxv(r, "estimate"), sxv(r, "se")), ""),
+  pm = vapply(R_APP, \(r) es(rcv(r, "Posterior-mean calibration", "estimate"), rcv(r, "Posterior-mean calibration", "se_fixed")), ""))
+kbl2(ct, escape = FALSE, align = "lrrrr",
+     col.names = c("Reliability", "Estimate (SE)", "SE, calibration fixed", "Estimate (SE)", "Estimate (SE)"),
+     "Both corrections in the analytic cohort, by the assumed reliability of log assets and log land. Each uses cross-fitted calibration, the lasso learner and the folds of Table \\ref{tab:appest}. The SE of regression calibration includes the first-step adjustment of Proposition \\ref{prop:rcfold}, and the SE of SIMEX includes its own. SIMEX uses $M=0$. Calibration by the posterior mean is a check (Section \\ref{sec:gap}), and its SE treats the calibration as fixed. Standard errors are clustered by village. The lasso DR-DiD estimate at reliability 1 is in Table \\ref{tab:appest}.") |>
+  add_header_above(c(" " = 1, "Regression calibration" = 2, "SIMEX" = 1, "Posterior mean" = 1))
+```
+
+*Both corrections.* As the assumed reliability falls, both corrections raise the contrast (Table \ref{tab:appcorr}, Figure \ref{fig:appsens}). At reliability 0.9 the two estimates differed by `r fmt(abs(rcv(0.9, "Regression calibration", "estimate") - sxv(0.9, "estimate")), 4)`. At reliability 0.6, regression calibration gave `r nm(rcv(0.6, "Regression calibration", "estimate"), 2)` (SE `r fmt(rcv(0.6, "Regression calibration", "se"), 2)`) and SIMEX `r app_simex(0.6)`, a difference of less than half of either standard error. The first-step adjustment raised the SE of regression calibration from `r fmt(rcv(0.6, "Regression calibration", "se_fixed"))` to `r fmt(rcv(0.6, "Regression calibration", "se"))` at reliability 0.6, where it carried `r fmt(100 * rcv(0.6, "Regression calibration", "calib_share"), 1)`% of the variance, while its own adjustment changed the SE of SIMEX by less than $10^{-4}$. Calibration by the posterior mean gave `r nm(rcv(0.6, "Posterior-mean calibration", "estimate"), 2)` at reliability 0.6, between the two corrections.
+
+*Gap share.* Log land has a point mass at zero. In `r fmt(100 * gv(0.6, "log_land", 0, "share_zero"), 0)`% of comparison children's households and `r fmt(100 * gv(0.6, "log_land", 1, "share_zero"), 0)`% of treated children's, no land is owned. At reliability 0.6 the estimated gap share of log land was `r fmt(gv(0.6, "log_land", 0), 3)` in the comparison group and `r fmt(gv(0.6, "log_land", 1), 3)` among the treated. Both values lie above the 99th percentile of the estimate for Gaussian samples of the same size, `r fmt(gres(682, 0.6, "q99"), 3)` and `r fmt(gres(220, 0.6, "q99"), 3)`. In the log-normal designs of the population map, shares of this size arise at skewness between 1.75 and 3.26. The shares of log assets, `r fmt(gv(0.6, "log_assets", 0), 3)` and `r fmt(gv(0.6, "log_assets", 1), 3)`, were below the 95th percentile of the same reference (`r fmt(gres(682, 0.6, "q95"), 3)` and `r fmt(gres(220, 0.6, "q95"), 3)`). The point mass also casts doubt on the error model itself. Adding a continuous error to any true value gives a report without point masses, so a report of no land is probably exact, and any error concerns the amount owned. \citet{fraser2012regression} discuss regression calibration for variables with many zeros. The gap share therefore says that regression calibration should be checked against calibration by the posterior mean. The two differed by at most `r fmt(max(abs(vapply(R_APP, \(r) rcv(r, "Regression calibration", "estimate") - rcv(r, "Posterior-mean calibration", "estimate"), 0))), 3)` years over the reliabilities considered, which is about a quarter of either standard error.
+
+*Extrapolation error.* SIMEX needs the bound $M$, and Figure \ref{fig:appsens} shows how its intervals widen with it. At reliability 0.6 with $M=0$, the SIMEX interval [`r nm(sxv(0.6, "ci_lo"), 3)`, `r nm(sxv(0.6, "ci_hi"), 2)`] just excludes zero. With interval (5) it continues to exclude zero up to $M=`r fmt(bd(0.6, "breakdown_M_add"), 4)`$, and with the bias-aware critical value of Section \ref{sec:biasint} up to $M=`r fmt(bd(0.6, "breakdown_M_ak"), 3)`$. At reliability 0.7 or above, the interval contains zero even at $M=0$. The regression-calibration interval at reliability 0.6, [`r nm(rcv(0.6, "Regression calibration", "ci_lo"), 3)`, `r nm(rcv(0.6, "Regression calibration", "ci_hi"), 2)`], also excludes zero, and it needs no bound on extrapolation. Over reliabilities in $[0.6,1]$, interval (6) was [`r nm(ex$app$range$outer_lo[ex$app$range$M==0 & ex$app$range$sample=="analytic cohort"], 2)`, `r nm(ex$app$range$outer_hi[ex$app$range$M==0 & ex$app$range$sample=="analytic cohort"], 2)`] at $M=0$ and [`r nm(ex$app$range$outer_lo[ex$app$range$M==0.2 & ex$app$range$sample=="analytic cohort"], 2)`, `r nm(ex$app$range$outer_hi[ex$app$range$M==0.2 & ex$app$range$sample=="analytic cohort"], 2)`] at $M=0.2$. Whether the contrast is positive therefore depends on the assumed reliability and, for SIMEX, on a bound on extrapolation that the data cannot check.
+
+```{r appsens, fig.cap="BIHS illustration. Regression calibration (circles, solid) and SIMEX (triangles, dashed), both with cross-fitted calibration and the lasso, as the assumed reliability of log assets and log land falls from 1 to 0.6. Panels give the bound $M$ on the third derivative of the SIMEX curve, in school years per cubed unit of $\\lambda$. Regression calibration does not depend on $M$ and is repeated in each panel. Vertical bars are pointwise 95\\% intervals, clustered by village, and the SIMEX intervals include the worst-case extrapolation bias $M\\kappa(t)$.", out.width="100%"}
+knitr::include_graphics("figures/fig_app_sensitivity.pdf")
+```
+
+*Parallel trends.* With one pre-period we cannot test parallel trends. An assumed deviation $\Delta$ between the treated group's untreated schooling gain and the comparison group's shifts the target to the estimate minus $\Delta$, and the interval moves by the same amount. The lasso interval [`r nm(ex$app$pt$delta_star_lower[ex$app$pt$method=="Lasso DR-DiD (cross-fit)" & ex$app$pt$sample=="analytic cohort"], 2)`, `r nm(ex$app$pt$delta_star_upper[ex$app$pt$method=="Lasso DR-DiD (cross-fit)" & ex$app$pt$sample=="analytic cohort"], 2)`] already contains zero. It would exclude zero only if the treated children's untreated gain were at least `r fmt(-ex$app$pt$delta_star_lower[ex$app$pt$method=="Lasso DR-DiD (cross-fit)" & ex$app$pt$sample=="analytic cohort"], 2)` years smaller than assumed, and it is compatible with no effect for any positive deviation up to `r nm(ex$app$pt$delta_star_upper[ex$app$pt$method=="Lasso DR-DiD (cross-fit)" & ex$app$pt$sample=="analytic cohort"], 2)` years. Measurement and trend sensitivity act on the same scale. We do not model them jointly.
+
+*Semi-synthetic check.* The BIHS semi-synthetic design of the first amendment resamples whole villages of the cohort, simulates outcomes around a known ATT and adds classical error to log assets and log land (Appendix \ref{app:semi}). Its village-clustered SIMEX intervals had close to nominal coverage (Table \ref{tab:confirm}), but the error moved the estimate by much less than its sampling variability, so the check supports the clustered variance more than the bias correction.
+
+# Discussion {#sec:discussion}
+
+Regression calibration and SIMEX use the same information, the reliability of each error-prone covariate, but they fail in different places. Regression calibration fails when its linear predictor is not the conditional mean of the true covariate, and SIMEX fails when its curve is not quadratic. The evidence suggests four steps for applied work.
+
+1. *Decide whether the reporting error could depend on treatment.* If it can, both corrections assume the wrong error model, and in our designs both moved the estimate further from the ATT (Section \ref{sec:differential}). A correction then needs a model of that dependence or validation data.
+2. *Check how far each error-prone covariate is from Gaussian within each treatment group.* The gap share of Section \ref{sec:gap} needs only the covariate and the assumed reliability. An estimated share within the resolution of the estimator is consistent with a zero gap, in which case regression calibration is exact for a trend linear in that covariate. A larger share does not measure the bias (Section \ref{sec:map}), but it says that regression calibration should be compared with calibration by the posterior mean.
+3. *Where the share is near zero, prefer regression calibration, with the SE that includes the first-step adjustment.* In the population map its target was closer to the ATT than SIMEX's in every Gaussian design, and also in every skewed design with a linear trend and reliability of 0.8 or below. Without the first-step adjustment its intervals under-covered, because the adjustment carried `r pr(gc, "rc_fold", "calibration_var_share", 0)`% of the variance in the Gaussian designs (Section \ref{sec:inference}).
+4. *Otherwise report SIMEX with a bias-aware interval over a range of $M$, and its breakdown value.* The extrapolation error of SIMEX shrinks quickly as the reliability rises. With skewness of at least `r sk(0.5)` and reliability of 0.9 or above, its target was the closer one in `r cnt_s(hi_rel)` of the `r nrow(hi_rel)` designs of the map. Its own first-step adjustment is small, at most `r fmt(simex_share("all"), 1)`% of its variance in our designs, but $M$ cannot be learned from the data.
+
+The outcome learner matters as much as the correction. In the fourth amendment, the same data ranked the two corrections in opposite orders with the lasso with squares and with the spline lasso, because the flexible learner transfers the control group's gap to the treated units and the near-linear one largely does not (Section \ref{sec:learner}). The population map describes the limit of a consistent nonparametric learner, which transfers all of it.
+
+Earlier comparisons of the two corrections disagree, and the setting explains part of the disagreement. In the simulations of \citet{nab2021sensitivity}, with error in an exposure in linear and logistic regression, regression calibration was nearly unbiased and SIMEX was not. In the blinded comparison of \citet{sedki2026methods}, for flexible exposure–outcome curves in case–control data, pointwise SIMEX was the most accurate. Our error is in a confounder, and the DiD target transfers an outcome regression from the controls to the treated units, which is the step through which the calibration gap enters. A ranking from one setting should not be carried to another without checking the shape of the error-prone covariate and the flexibility of the learner.
+
+The evidence has limits beyond those already stated.
+
+- The error is classical and Gaussian with a known or bounded reliability. We did not evaluate an estimated reliability with its own influence function, external calibration samples, or differential treatment reporting.
+- The population map uses one family of shapes (log-normal) and two trends, with covariates independent given treatment. Point masses, such as the many households that own no land, and dependent covariates are not covered.
+- Both simulation families of the original study use a logit-linear propensity, so they test trend misspecification more than propensity misspecification. Their covariates are drawn independently from calibrated marginals, which the semi-synthetic check partly addresses.
+- The first-step adjustment of Proposition \ref{prop:rcfold} needs the gradient of the fitted outcome regression, which trees do not provide.
+- Learners extrapolate poorly in heavy tails, and the spline lasso failed in one cell for that reason (Section \ref{sec:learner}).
+- Calibration by the posterior mean removes the gap for linear trends, but we use it only as a check. Estimators built on it, and their inference, are not developed here (Section \ref{sec:gap}).
+- The convergence pilot did not separate slow mixing from posterior concentration as the source of the Bayesian causal forest's under-coverage (Appendix \ref{app:bcf}).
+- The cluster extension covers independent villages of bounded size. Survey weights would change both the score and the target.
+
+# Conclusion {#sec:conclusion}
+
+Doubly robust DiD with machine-learned nuisances protects against misspecified nuisance models, not against mismeasured covariates. With the same information, the reliability of each error-prone covariate, regression calibration and SIMEX can both be cross-fitted inside DR-DiD, and both then have influence functions with a first-step adjustment for the estimated calibration. The adjustment is small for SIMEX and large for regression calibration. Their targets differ in a predictable way. Regression calibration is exact when the true covariate is Gaussian within each treatment group, and its error otherwise depends on the gap between its linear predictor and the posterior mean. SIMEX's error is extrapolation error, which a bias-aware interval can carry under a bound on the third derivative of its curve. Applied work should report the assumed reliability, the estimated gap share of each error-prone covariate, and both corrections, with the SIMEX interval reported over a range of $M$.
+
+<!-- Declarations, commented out for now. Restore by removing this comment's opening and closing lines.
+
+# Declarations {-}
+
+*Data and code availability.* The simulation and application code, the frozen design documents of every study, the aggregated results and the manuscript sources are in the code release [Zenodo DOI to be added]. Raw BIHS microdata are distributed by IFPRI and are not redistributed. The application code reads them from a user-supplied path and publishes only aggregate tables.
+
+*Study registration and deviations.* The 64-cell design was fixed in a time-stamped protocol before the original study ran. Each later study was specified in a dated amendment after the earlier results had been seen, and was frozen before its first replicate. The first amendment evaluates the revised SIMEX. The second adds a convergence pilot for the Bayesian causal forest and the comparison with regression calibration. The third studies covariate shape and regression calibration with cross-fitted calibration, the fourth reliability 0.9 and the spline lasso, and the fifth the spline lasso with clamped covariates. The population map, the intervals with the bias-aware critical value, the estimated gap shares and the application's estimates for regression calibration and calibration by the posterior mean were computed after all studies had been seen and are reported as post hoc. Deviations are logged in Appendix \ref{app:repro}.
+
+*Use of AI tools.* Claude (Anthropic) assisted with code, derivation checks and drafting under the author's direction. The author reviewed and takes responsibility for all content.
+
+*Funding.* The author received no funding for this work.
+
+*Competing interests.* [Author to complete.]
+
+-->

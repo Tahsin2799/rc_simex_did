@@ -1,0 +1,236 @@
+# Inference for SIMEX and regression calibration {#app:simex}
+
+*Notation.* An observation is $O=(D,A,W^*,V)$ with $X^*=(W^*,V)$. The assumed error variances are $s=(s_1,\dots,s_p)>0$ with $S(s)=\mathrm{diag}(s)$. The SIMEX grid is $0=\lambda_0<\lambda_1<\dots<\lambda_J$ with $J\ge2$, and $G$ denotes a standard Gaussian vector independent of $O$. The influence values of this appendix are written $\phi$, $\bar\phi$ and $\chi$, to keep them distinct from $\psi$ and $\zeta$ in Appendix \ref{app:foundations}.
+
+## The statistical target before extrapolation {#app:simex-target}
+
+For a law $P$ with $\pi>0$ let $e_P(x)=P(A=1\mid X^*=x)$, $m_P(x)=E_P[D\mid A=0,X^*=x]$ and
+$$
+Q(P)=\frac{E_P[A\{D-m_P(X^*)\}]}{\pi}. \tag{C.1}
+$$
+This is an observed-data functional. It equals a causal ATT only when the identification assumptions hold at $X^*$. Its influence function in the nonparametric model is
+$$
+\phi_P(O)=\frac A\pi\{D-m_P(X^*)-Q(P)\}-\frac{(1-A)e_P(X^*)}{\pi\{1-e_P(X^*)\}}\{D-m_P(X^*)\}. \tag{C.2}
+$$
+For a regular path $P_t$ with score $\ell$, $\dot m(x)=E[(D-m)\ell\mid A=0,X^*=x]$, so $\nu=E[A(D-m)]$ has derivative $E[\{A(D-m)-(1-A)e(D-m)/(1-e)\}\ell]$. Together with $\dot\pi=E[A\ell]$, the quotient rule gives $\dot Q=E[\phi_P\ell]$.
+
+Define the simulated observation $T_{j,s}(O,G)=(D,A,W^*+\sqrt{\lambda_j}S(s)^{1/2}G,V)$, its law $P_{j,s}$, and $Q_j(P,s)=Q(P_{j,s})$, with influence function $\phi_{j,s}$. Let $\mathcal X$ be the $(J+1)\times3$ matrix with rows $(1,\lambda_j,\lambda_j^2)$, $L=(\mathcal X^\top\mathcal X)^{-1}\mathcal X^\top$, $z(t)=(1,t,t^2)^\top$ and $c(t)=L^\top z(t)$. For $Q=(Q_0,\dots,Q_J)^\top$,
+$$
+a=LQ,\qquad q_2(t)=z(t)^\top a=c(t)^\top Q. \tag{C.3}
+$$
+If the error covariance is $S(s_0)$, then $Q_j(P,s_0)=q(\lambda_j)$ for the physical SIMEX curve $q$ of Appendix \ref{app:idset}. The primary target of quadratic SIMEX is $q_2(-1)$, which equals $q(-1)=\tau$ only if $q$ is quadratic.
+
+## Fixed calibration and a finite number of simulations {#app:simex-fixed}
+
+Draw independent $G_{i,j,b}$ for each unit $i$, level $j\ge1$ and replicate $b=1,\dots,B$. Suppose each cross-fitted estimator satisfies $\hat Q_{j,b}(s_0)-Q_j(P,s_0)=P_n\phi_{j,s_0}(T_{j,s_0}(O,G_{\cdot,j,b}))+o_p(n^{-1/2})$. Sufficient conditions are those of Appendix \ref{app:crossfit} applied to the distribution of the simulated data at each noise level, with overlap inside the clipping interval. Let
+$$
+\bar\phi_{i,0}=\phi_0(O_i),\qquad\bar\phi_{i,j}=B^{-1}\textstyle\sum_b\phi_{j,s_0}(T_{j,s_0}(O_i,G_{i,j,b})). \tag{C.4}
+$$
+Because $J$ and $B$ are fixed, $\sqrt n\{\hat q_2(t)-q_2(t)\}=n^{-1/2}\sum_ic(t)^\top\bar\phi_i+o_p(1)$. The augmented rows $(O_i,G_{i,\cdot,\cdot})$ are i.i.d., so the limit is normal with variance $c(t)^\top\mathrm{Var}(\bar\phi)c(t)$, which the empirical covariance of the row vectors estimates consistently. Treating the grid estimates as independent would ignore their dependence through common units. With $a_j(O)=E_G[\phi_j\mid O]$ and $v_j(O)=\mathrm{Var}_G[\phi_j\mid O]$, fresh draws give
+$$
+\mathrm{Var}(\bar\phi)=\mathrm{Var}(a(O))+\mathrm{diag}\{0,E[v_1]/B,\dots,E[v_J]/B\}. \tag{C.5}
+$$
+The simulation term need not be negligible at $B=20$, and the row-covariance estimator includes it automatically. $B$ does not need to grow for consistency.
+
+## The derivative with respect to the error variance {#app:simex-gradient}
+
+For $j>0$, the density of the simulated covariate $\tilde w$ given the reported value $w$, $p_s(\tilde w\mid w)=\prod_l(2\pi\lambda_js_l)^{-1/2}\exp\{-(\tilde w_l-w_l)^2/(2\lambda_js_l)\}$, has score in the error variance $s_l$ of coordinate $l$
+$$
+\frac{\partial\log p_s}{\partial s_l}=-\frac1{2s_l}+\frac{(\tilde w_l-w_l)^2}{2\lambda_js_l^2}=\frac{G_l^2-1}{2s_l}. \tag{C.6}
+$$
+The score of the distribution of the simulated data is the conditional expectation of this score given the simulated observation. Applying (C.2) and iterated expectations therefore gives
+$$
+\mathcal D_{jl}:=\frac{\partial Q_j(P,s)}{\partial s_l}\Big|_{s_0}=E\Big[\phi_{j,s_0}(T_{j,s_0}(O,G))\frac{G_l^2-1}{2s_{0l}}\Big],\qquad\mathcal D_{0l}=0. \tag{C.7}
+$$
+$\mathcal D$ is estimated by averaging the products of saved influence values and saved normals. Regularised fits and tree splits never need to be differentiated. For a full covariance $S$ and a symmetric direction $H$, the score is $\frac12\{U^\top S^{-1}HS^{-1}U-\mathrm{tr}(S^{-1}H)\}$ with $U\sim N(0,S)$, and using symmetric basis matrices avoids a factor of two on off-diagonal coordinates. Sufficient conditions for (C.7) are bounded $D$, overlap $\delta\le P(A=1\mid X^*)\le1-\delta$, and interior $s_0$, under which Gaussian convolution preserves overlap and the required integrands are dominated. Unbounded outcomes need integrable envelopes instead. At $s_{0l}=0$, (C.6) is undefined, so an error-free covariate must not be listed as error-prone.
+
+## Asymptotic expansion with cross-fitted calibration {#app:simex-fold}
+
+When the assumed reliability $r$ is fixed and $s_{0l}=(1-r)\mathrm{Var}(W^*_l)$, the sample calibration has influence function
+$$
+h_{s,l}(O)=(1-r)\{(W^*_l-\bar w_l)^2-v_l\},\qquad\bar w_l=EW^*_l,\ v_l=\mathrm{Var}(W^*_l), \tag{C.8}
+$$
+because the difference between the sample variance and $n^{-1}\sum_i(W^*_{il}-\bar w_l)^2$ is $O_p(n^{-1})$ under finite fourth moments. If $r$ is itself estimated with influence function $h_r$, then $h_{s,l}=(1-r)h_{v,l}-v_lh_r$, where $h_{v,l}$ is the influence function of the sample variance.
+
+Estimating $s$ on all rows and then perturbing all rows, as the original implementation does, breaks the conditional independence that cross-fitting relies on. An expansion for that estimator needs a uniform expansion of the fitted algorithm over a neighbourhood of $s_0$ together with stochastic equicontinuity. We do not prove either. The modified estimator of Section \ref{sec:method} avoids the problem:
+
+1. Compute $\hat s_{-k}$ from the rows outside fold $I_k$.
+2. For every $(j,b)$, build the training and held-out simulated data of fold $k$ with $\hat s_{-k}$ and the same rowwise normals.
+3. Fit the nuisances on the training simulated data and evaluate the fold-normalised Hajek estimator on $I_k$.
+4. Average over folds, then over $b$.
+
+\begin{theorem}[SIMEX with cross-fitted calibration]\label{thm:simexfold}
+Let the observations be i.i.d., with $K$ fixed and equal fold fractions, and assume the following.
+(i) The calibration obeys (C.8) on each complement sample.
+(ii) At the estimated $\hat s_{-k}$, the nuisance estimators are consistent for the distribution $P_{j,\hat s_{-k}}$ of the simulated data, with product of $L^2$ errors $o_p(n^{-1/2})$ and overlap inside the clipping interval.
+(iii) Conditional second moments make the held-out empirical-process remainder $o_p(n^{-1/2})$.
+(iv) The map $s\mapsto Q_j(P,s)$ is differentiable at $s_0$ with derivative (C.7).
+(v) With common normals, $E[\{\phi_{j,s}(T_{j,s}(O,G))-\phi_{j,s_0}(T_{j,s_0}(O,G))\}^2]\to0$ as $s\to s_0$.
+Let $\chi_i=\bar\phi_i+\mathcal Dh_s(O_i)$. Then
+\[
+\sqrt n\{\bar Q(\hat s)-Q(P,s_0)\}=n^{-1/2}\textstyle\sum_i\chi_i+o_p(1),\qquad\sqrt n\{\hat q_2(t)-q_2(t)\}\Rightarrow N\big(0,\,c(t)^\top\mathrm{Var}(\chi)c(t)\big).
+\]
+If the estimated influence values converge in empirical $L^2$ and $\hat{\mathcal D}\to\mathcal D$, the empirical covariance of $\hat\chi_i$ is consistent.
+\end{theorem}
+
+*Proof.* Condition on a training sample. Then $\hat s_{-k}$ and the fitted nuisances are fixed, and the held-out rows and their normals are independent. The fold DR remainder is of product order (Appendix \ref{app:remainder}), and conditional Chebyshev bounds the score-replacement term by its squared $L^2$ error divided by the fold size. Hence
+$$
+\hat Q_{j,b,k}-Q_j(P,\hat s_{-k})=|I_k|^{-1}\textstyle\sum_{i\in I_k}\phi_{j,\hat s_{-k}}(T_{j,\hat s_{-k}}(O_i,G_{i,j,b}))+o_p(n^{-1/2}).
+$$
+Each summand has conditional mean zero. By (v) and conditional Chebyshev, replacing $\hat s_{-k}$ by $s_0$ inside $\phi$ changes the centred sum by $o_p(n^{-1/2})$. Differentiability gives $Q_j(P,\hat s_{-k})=Q_j(P,s_0)+\mathcal D_j(\hat s_{-k}-s_0)+o_p(n^{-1/2})$. Each row belongs to exactly $K-1$ training sets, so
+$$
+K^{-1}\textstyle\sum_k(\hat s_{-k}-s_0)=K^{-1}\sum_k\{n(1-K^{-1})\}^{-1}\sum_{i\notin I_k}h_s(O_i)+o_p(n^{-1/2})=n^{-1}\sum_ih_s(O_i)+o_p(n^{-1/2}).
+$$
+Averaging the fold sums over $k$ gives $n^{-1}\sum_i\phi_{j,s_0}$, and averaging over $b$ gives the stated expansion. The central limit theorem for the i.i.d. augmented rows gives normality. Variance consistency follows from the stated convergence and a conditional law of large numbers over the finitely many folds and simulations. $\square$
+
+The variance decomposes as
+$$
+\mathrm{Var}\{c^\top\chi\}=\mathrm{Var}(c^\top\bar\phi)+2\mathrm{Cov}(c^\top\bar\phi,c^\top\mathcal Dh_s)+c^\top\mathcal D\mathrm{Var}(h_s)\mathcal D^\top c. \tag{C.9}
+$$
+The cross term can take either sign, so omitting the first-step adjustment does not always understate the variance. With unequal limiting fold fractions, the training-inclusion weights must replace the equal-fold identity used in the proof.
+
+*Independent calibration.* If an independent sample of size $m$ estimates $s_0$ with covariance $V_s/m$, the first-order variance of $\hat q_2(t)$ is $c^\top\{V_{\mathrm{main}}/n+\mathcal DV_s\mathcal D^\top/m\}c$, with no cross term. Calibration uncertainty is negligible only if $n/m\to0$, the covariance is known exactly, or $\mathcal D=0$. A covariance transported from another population also requires a transport assumption.
+
+## Clustered data {#app:simex-cluster}
+
+\begin{proposition}[Cluster extension]\label{prop:cluster}
+Let the data consist of $n_c$ i.i.d. clusters of bounded size, with folds formed by assigning whole clusters to $K$ folds with equal numbers of clusters. Let the conditions of Theorem \ref{thm:simexfold} hold with independence across clusters replacing independence across rows, and conditional moments taken at the cluster level. Then, as $n_c\to\infty$,
+\[
+\sqrt{n_c}\{\hat q_2(t)-q_2(t)\}=n_c^{-1/2}\textstyle\sum_g\frac{n_c}{n}\sum_{i\in g}c(t)^\top\chi_i+o_p(1),
+\]
+and $\widehat{\mathrm{Var}}\{\hat q_2(t)\}=\frac{n_c}{n_c-1}n^{-2}\sum_g(\Xi_g-\bar\Xi)^2$, with $\Xi_g=\sum_{i\in g}c^\top\hat\chi_i$, is consistent for the variance of $\hat q_2(t)$.
+\end{proposition}
+
+*Proof sketch.* Clusters are the independent units. With bounded cluster sizes, the fold row fractions converge to $1/K$ almost surely, so the equal-fold averaging identity in the proof of Theorem \ref{thm:simexfold} holds up to $o_p(n^{-1/2})$. Conditional on training clusters, the held-out clusters are independent, and conditional Chebyshev applies to cluster sums. The first-step adjustment $n^{-1}\sum_ih_s(O_i)$ is a cluster-level average. The expansion then follows from the cluster-level central limit theorem, and the variance estimator is the usual cluster-robust estimator applied to the summed influence values. $\square$
+
+This result covers the BIHS illustration, where villages are the clusters. It does not cover survey weights, which change both the score and the target.
+
+## Simultaneous inference for the curve and its range {#app:simex-band}
+
+Let $\hat a=L\bar Q$ and $\sqrt n(\hat a-a)\Rightarrow N(0,\Omega)$, where $\Omega$ is the covariance of $L\chi$ (or of $L\bar\phi$ under fixed calibration). With $\hat\Omega\to\Omega$ positive definite and $k_\alpha=\{\chi^2_{3,1-\alpha}\}^{1/2}$, the coefficient ellipsoid covers $a$ with asymptotic probability $1-\alpha$. On that event, by Cauchy–Schwarz applied to $z^\top(\hat a-a)=(\hat\Omega^{1/2}z)^\top\hat\Omega^{-1/2}(\hat a-a)$,
+$$
+|\hat q_2(t)-q_2(t)|\le k_\alpha\{z(t)^\top\hat\Omega z(t)/n\}^{1/2}=:w_n(t)\quad\text{for all }t\in[-1,0]. \tag{C.10}
+$$
+This is a conservative simultaneous band. If $\Omega$ may be singular, replacing $\hat\Omega$ by $\hat\Omega+\epsilon I$ for a fixed $\epsilon>0$ keeps the band valid. For the range $[\theta_L,\theta_U]=[\min_tq_2(t),\max_tq_2(t)]$,
+$$
+\mathcal C_n=\Big[\min_{t\in[-1,0]}\{\hat q_2(t)-w_n(t)\},\ \max_{t\in[-1,0]}\{\hat q_2(t)+w_n(t)\}\Big] \tag{C.11}
+$$
+contains the whole range on the event (C.10), so $\liminf P([\theta_L,\theta_U]\subseteq\mathcal C_n)\ge1-\alpha$. This holds for tied extrema and constant curves without selecting an optimiser. Because $\|z(t)\|^2\le3$, the closed-form $\overline w_n=k_\alpha\{3\lambda_{\max}(\hat\Omega)/n\}^{1/2}$ gives a simpler, more conservative interval.
+
+The endpoint delta method has a restricted domain. For a continuous perturbation $h$, the directional derivatives of the extrema are
+$$
+d\min q_2[h]=\min_{t\in\arg\min q_2}h(t),\qquad d\max q_2[h]=\max_{t\in\arg\max q_2}h(t). \tag{C.12}
+$$
+To prove (C.12), let $t_\varepsilon$ minimise $q_2+\varepsilon h_\varepsilon$ with $h_\varepsilon\to h$ uniformly. Its limit points lie in $\arg\min q_2$, and comparing with a true minimiser bounds the difference quotient from both sides. With a unique optimiser, (C.12) is linear and the ordinary delta method applies. With ties it is nonlinear and the limit is non-normal, which is why the range interval (C.11) is used instead of endpoint Wald intervals.
+
+## Approximation error of quadratic extrapolation {#app:simex-peano}
+
+Fix $t\le0$ and suppose $q$ is three times continuously differentiable on $[t,\lambda_J]$ with $|q'''|\le M$. Taylor's theorem with integral remainder, and the reproduction of quadratics by $c(t)$ ($\sum_jc_j=1$, $\sum_jc_j\lambda_j=t$, $\sum_jc_j\lambda_j^2=t^2$), give the exact identity
+$$
+q_2(t)-q(t)=\int_t^{\lambda_J}K_t(u)q'''(u)\,du,\qquad K_t(u)=\tfrac12\textstyle\sum_jc_j(t)(\lambda_j-u)_+^2, \tag{C.13}
+$$
+hence
+$$
+|q_2(t)-q(t)|\le M\kappa(t),\qquad\kappa(t)=\int_t^{\lambda_J}|K_t(u)|\,du. \tag{C.14}
+$$
+This is the classical Peano-kernel argument. $K_t$ is piecewise quadratic, so $\kappa(t)$ is computed exactly by splitting at knots and real roots. For the grid $(0,0.5,1,2)$, $c(-1)=\frac1{11}(36,-8,-27,10)^\top$ and
+$$
+K_{-1}(u)=\begin{cases}\frac12(u+1)^2,&-1\le u\le0,\\-\frac{25}{22}u^2+u+\frac12,&0\le u\le\frac12,\\-\frac{17}{22}u^2+\frac7{11}u+\frac{13}{22},&\frac12\le u\le1,\\\frac5{11}(u-2)^2,&1\le u\le2.\end{cases}
+$$
+All pieces are non-negative, and their integrals are $1/6$, $173/528$, $163/528$ and $5/33$, so
+$$
+|q_2(-1)-\tau|\le\tfrac{21}{22}M. \tag{C.15}
+$$
+Cubics with $q'''\equiv\pm M$ attain the bound, so the constant is sharp over smooth functions. Sharpness over the smaller class of curves generated by compatible causal laws is not claimed. If $q'''\ge0$ throughout, the extrapolation bias is non-negative.
+
+\begin{corollary}[Bias-aware intervals]\label{cor:outer}
+(a) Known reliability. Under Theorem \ref{thm:simexfold} and $|q'''|\le M$ on $[-1,\lambda_J]$, the interval $\hat q_2(-1)\pm\{z_{1-\alpha/2}\widehat{\mathrm{se}}+\frac{21}{22}M\}$ has asymptotic coverage at least $1-\alpha$ for $\tau$.
+(b) Unknown reliability. Let the true covariance be $\rho_0S_L$ with $\rho_0\in[0,1]$ and $t_0=-\rho_0$, and assume only that the true curve satisfies $|q'''|\le M$ on $[t_0,\lambda_J]$. With $b_M(t)=M\kappa(t)$,
+\[
+\Big[\min_{t\in[-1,0]}\{\hat q_2(t)-w_n(t)-b_M(t)\},\ \max_{t\in[-1,0]}\{\hat q_2(t)+w_n(t)+b_M(t)\}\Big] \tag{C.16}
+\]
+has asymptotic coverage at least $1-\alpha$ for $\tau$.
+\end{corollary}
+
+*Proof.* (a) On the event that the sampling interval covers $q_2(-1)$, widening both ends by the deterministic bound (C.15) covers $\tau$. (b) On the simultaneous event (C.10), $q_2(t_0)\in[\hat q_2(t_0)\pm w_n(t_0)]$, and (C.14) at $t_0$ gives $\tau\in[q_2(t_0)\pm b_M(t_0)]$. The interval (C.16) contains both. $\square$
+
+*Bias-aware critical value.* Part (a) adds the worst-case bias to a symmetric sampling interval. Under the same conditions, the interval $\hat q_2(-1)\pm\mathrm{cv}_\alpha(B/\widehat{\mathrm{se}})\,\widehat{\mathrm{se}}$ with $B=\frac{21}{22}M$, where $\mathrm{cv}_\alpha(b)$ is the $1-\alpha$ quantile of $|N(b,1)|$, also has asymptotic coverage at least $1-\alpha$, because the estimator is approximately normal with a bias of at most $B$. It is never longer than (a). This is the bias-aware interval of \citet{armstrong2018optimal, armstrong2020simple}, with the worst-case bias of the extrapolation given by the Peano kernel. $M$ plays the role of the bound on second differences of trend violations in \citet{rambachan2023more}. The largest $M$ at which an interval still excludes a value of interest is its breakdown value \citep{masten2020inference, rambachan2023more}. We added the bias-aware critical value and the breakdown value after all studies had been seen (Section \ref{sec:biasaware}).
+
+Part (b) does not require every candidate reliability to admit a joint deconvolution. Infeasible candidates can only enlarge (C.16), so no sharpness follows. $M=0$ recovers exact quadratic extrapolation. The derivative bound on the negative-noise interval cannot be estimated from the positive grid without further restrictions, so we treat $M$ as a sensitivity parameter, report a grid of values fixed before the first amendment's runs, and state its units, which are outcome units per cubed unit of $\lambda$ on the scale of the assumed error variance.
+
+*Relation to prior SIMEX theory.* Asymptotic theory for SIMEX in parametric models \citep{carroll1996asymptotics} and in semiparametric kernel models \citep{apanasovich2009simex} predates this work, as do the first-step adjustment for an estimated nuisance \citep{newey1994asymptotic}, the score-function derivative \citep{glynn1990likelihood}, the simultaneous coefficient ellipsoid and the Peano kernel. \citet{chen2026generalized} also relax the assumption that the polynomial extrapolant is exact, for parametric M-estimators with a known error covariance. They fit polynomials of order growing with the number of grid points on a dense grid (10,000 points in their simulations, one simulated data set per point), with subset selection and model averaging. Their approximation bounds (Theorems 3.1 and 3.2) involve constants that are not given explicitly and vanish as the grid and the order grow, and their normality result (Theorem 3.3) assumes the approximation error is $o(n^{-1/2})$ and uses a covariance that is diagonal across noise levels. Corollary \ref{cor:outer} instead bounds the error of a fixed quadratic on a fixed four-point grid with an explicit, sharp constant, keeps that error in the interval as a sensitivity parameter, and (C.5) keeps the covariance across levels that common units induce. What is specific here is their combination for the cross-fitted Hajek DR-DiD functional. It consists of cross-fitted calibration with a complete expansion (Theorem \ref{thm:simexfold}), the derivative (C.7), which avoids differentiating learners, and the bias-aware intervals of Corollary \ref{cor:outer}. Appendix \ref{app:repro} lists the numerical checks, which cover exact Peano integrals, the derivative (C.7) against central differences in a finite-support law, and the implementation checks of Section \ref{sec:sim}.
+
+## Regression calibration with cross-fitted calibration {#app:rc-fold}
+
+Regression calibration \citep{carroll2006measurement} can use exactly the information that SIMEX uses, the assumed reliability $r$ and the variance of each error-prone covariate. Write $Z=(W^*,V)$ with $p$ columns, $s=(1-r)\mathrm{Var}(W^*)$, and let $S_p$ be the $p\times p$ diagonal matrix with $s$ on the error-prone coordinates and zeros elsewhere. With $\pi_a=P(A=a)$, $\bar z_a=E[Z\mid A=a]$ and $\Sigma_a=\mathrm{Var}(Z\mid A=a)$, the best linear predictor of $W$ given $Z$ within group $a$ gives the calibrated covariates
+$$
+\hat X=h_A(Z;\eta),\qquad h_a(z;\eta)=z-S_p\Sigma_a^{-1}(z-\bar z_a),\qquad\eta=(\bar z_0,\bar z_1,\Sigma_0,\Sigma_1,s). \tag{C.17}
+$$
+Only the error-prone coordinates change. Let $m_\eta(x)=E[D\mid A=0,\hat X=x]$ and $Q(\eta)=E[A\{D-m_\eta(h_1(Z;\eta))\}]/\pi$, the value of the DR-DiD functional at the calibrated law. The propensity drops out at the true nuisances.
+
+*When the target is the ATT.* Assume (B.1) and that $h_0(\cdot;\eta_0)$ is invertible on the control support. If $E[\mu(X)\mid Z,A=a]=\nu\{h_a(Z;\eta_0)\}$ for both $a$ and one function $\nu$, then $m_{\eta_0}=\nu$ on the control support. Given overlap of $h_1(Z)$ among treated units with that support, $Q(\eta_0)=\tau+E[A\{E[\mu(X)\mid Z,A=1]-\nu(h_1(Z))\}]/\pi=\tau$. The condition holds in two cases. In the first, $E[W\mid Z,A]$ is linear in $Z$ and $\mu$ is linear in $W$. In the second, $\mu$ is quadratic in $W$ and $\mathrm{Var}(W\mid Z,A=a)$ depends neither on $Z$ nor on $a$, as when $W$ given $A$ is Gaussian with a common covariance. Otherwise $Q(\eta_0)-\tau$ is the approximation bias of regression calibration.
+
+*The derivative of the target in the calibration.* Invertibility gives $m_\eta(x)=m^*_0(h_0^{-1}(x;\eta))$ with $m^*_0(z)=E[D\mid A=0,Z=z]$. Implicit differentiation of $h_0(h_0^{-1}(x;\eta);\eta)=x$ then gives, for a direction $\delta=(\delta_{\bar z_0},\delta_{\bar z_1},\delta_{\Sigma_0},\delta_{\Sigma_1},\delta_s)$,
+$$
+\mathcal D_\eta Q[\delta]=-\frac1\pi E\Big[A\,G^\top\big\{\partial_\eta h_1(Z)[\delta]-\partial_\eta h_0(Z')[\delta]\big\}\Big], \tag{C.18}
+$$
+where $G=\nabla_xm_\eta$ is evaluated at the treated unit's calibrated point $\hat X$, $Z'=h_0^{-1}(\hat X;\eta)$ is that point's preimage under the control calibration, and $\partial_\eta h_a(z)[\delta]=-\{\Delta_s\Sigma_a^{-1}-S_p\Sigma_a^{-1}\delta_{\Sigma_a}\Sigma_a^{-1}\}(z-\bar z_a)+S_p\Sigma_a^{-1}\delta_{\bar z_a}$, with $\Delta_s$ the diagonal matrix of $\delta_s$.
+
+Unlike (C.7), (C.18) needs the gradient of the outcome regression. For the parametric learner and the lasso dictionary of raw columns and squares, the fitted regression is a polynomial, so central differences of its predictions give that gradient exactly. For tree learners it is not available. The propensity does not appear because $T_P(e_\eta,m_\eta)=Q(\eta)$ for every $\eta$ when both nuisances are correct.
+
+*Cross-fitted calibration.* As for SIMEX, $\hat\eta_{-k}$ is computed from the rows outside fold $I_k$, and both the training and the held-out rows of fold $k$ are mapped with it. The calibration is asymptotically linear with influence function $h_\eta$, whose components are
+$$
+h_{\bar z_a}=\frac{1\{A=a\}(Z-\bar z_a)}{\pi_a},\qquad h_{\Sigma_a}=\frac{1\{A=a\}\{(Z-\bar z_a)(Z-\bar z_a)^\top-\Sigma_a\}}{\pi_a}, \tag{C.19}
+$$
+and $h_s$ from (C.8).
+
+\begin{proposition}[Regression calibration with cross-fitted calibration]\label{prop:rcfold}
+Let the conditions of Theorem \ref{thm:simexfold} hold with $s$ replaced by $\eta$, the distribution of the simulated data replaced by the calibrated law of $(D,A,h_A(Z;\eta))$, and (C.7) replaced by (C.18). Assume also that $\Sigma_0$ and $\Sigma_1$ are nonsingular, that $h_0(\cdot;\eta_0)$ is invertible, and that $Z$ has finite fourth moments. Let $\chi^{\mathrm{RC}}_i=\phi_i+\mathcal D_\eta Q[h_\eta(O_i)]$, where $\phi$ is the DR-DiD influence function (A.6) at the calibrated law. Then
+\[
+\sqrt n\{\hat\tau_{\mathrm{RC}}-Q(\eta_0)\}=n^{-1/2}\textstyle\sum_i\chi^{\mathrm{RC}}_i+o_p(1)\Rightarrow N\big(0,\mathrm{Var}(\chi^{\mathrm{RC}})\big). \tag{C.20}
+\]
+If $\hat G$ converges in $L^2$ among the treated and the estimated influence values converge in empirical $L^2$, the empirical variance of $\hat\chi^{\mathrm{RC}}_i$ is consistent.
+\end{proposition}
+
+*Proof.* The proof of Theorem \ref{thm:simexfold} applies line by line. Conditional on the training rows, the held-out rows mapped with $\hat\eta_{-k}$ are independent draws from the calibrated law at $\hat\eta_{-k}$. The fold DR remainder is of product order, and mean-square continuity replaces $\hat\eta_{-k}$ by $\eta_0$ inside the score. Then $Q(\hat\eta_{-k})=Q(\eta_0)+\mathcal D_\eta Q[\hat\eta_{-k}-\eta_0]+o_p(n^{-1/2})$ by (C.18), and averaging the calibration errors over folds gives $n^{-1}\sum_ih_\eta(O_i)$. $\square$
+
+That a regression-calibration variance must account for the estimated calibration is standard for parametric models, where sandwich and bootstrap variances are used \citep{carroll2006measurement}. For two-step estimators in general, the term is the first-step adjustment of \citet{murphy1985estimation} and \citet{newey1994asymptotic}. The nearest work in double machine learning is \citet{xu2024causal}. They add the corresponding term for a linear calibration model fitted in an external validation study, inside a cross-fitted partially linear model, where the calibration sample is independent of the main sample. Proposition \ref{prop:rcfold} covers the case where the calibration is estimated in-sample on the training folds, so the term is correlated with the main score, the calibration conditions on treatment, and the functional is the Hajek DR-DiD ATT. The first-step adjustment is expressed through the gradient of the fitted outcome regression. The variance decomposes as in (C.9), and the cross term can again take either sign. The rate condition requires a consistent outcome regression near $\eta_0$. When that fails, the derivative of the estimator's limit gains a propensity-weight term that (C.18) omits, so the variance is then not guaranteed. The same holds for SIMEX with cross-fitted calibration. The implementation checks in Appendix \ref{app:repro} compare (C.18) with central differences of the refitted estimator and test the variance by Monte Carlo in the closed-form design.
+
+
+## Linear calibration and the posterior mean {#app:rc-gap}
+
+Regression calibration replaces $W$ by its best linear predictor $h_a(Z)$ within each treatment group. The calibration that the conditioning argument above asks for is the conditional mean $E[W\mid Z,A=a]$. This section measures the distance between the two and shows how that distance enters the bias.
+
+Fix a group $a$. Let $W^*=W+U$ with $U\sim N(0,S)$ independent of $(W,V)$ given $A=a$, where $S$ is the positive definite error covariance of the error-prone coordinates. Let $p_a(\cdot\mid v)$ be the density of $W^*$ given $V=v$ and $A=a$, and write $\nabla$ for the gradient in $w^*$. Tweedie's formula \citep{efron2011tweedie} gives
+$$
+E[W\mid Z,A=a]=W^*+S\,\nabla\log p_a(W^*\mid V). \tag{C.21}
+$$
+Write $\Delta_a(Z)=E[W\mid Z,A=a]-h_a(Z)$ for the gap between the posterior mean and the best linear predictor (C.17), restricted to the error-prone coordinates. Write $J_a=E[\nabla\log p_a\,\nabla\log p_a^\top\mid A=a]$ for the Fisher information for location of $W^*$ given $V$, and $[\Sigma_a^{-1}]_{WW}$ for the block of $\Sigma_a^{-1}$ that belongs to the error-prone coordinates.
+
+\begin{proposition}[Calibration gap]\label{prop:gap}
+Assume that $p_a(\cdot\mid v)$ is differentiable, that $J_a$ is finite, and that $p_a(w^*\mid v)\,(w^*-c)\to0$ as $\|w^*\|\to\infty$ for every fixed $c$ and $v$. Then
+\[
+E[\Delta_a\Delta_a^\top\mid A=a]=S\big\{J_a-[\Sigma_a^{-1}]_{WW}\big\}S. \tag{C.22}
+\]
+In particular $J_a\succeq[\Sigma_a^{-1}]_{WW}$. The gap $\Delta_a$ is zero almost surely if and only if, within group $a$, $W$ given $V$ is Gaussian with a mean that is linear in $V$ and a covariance that does not depend on $V$.
+\end{proposition}
+
+*Proof.* Let $g=\nabla\log p_a(W^*\mid V)$ and $b=[\Sigma_a^{-1}(Z-\bar z_a)]_W$. By (C.21) and (C.17), $\Delta_a=S(g+b)$. Integration by parts in $w^*$, with the boundary terms removed by the tail condition, gives $E[g(Z-\bar z_a)^\top\mid A=a]=-[\,I\ \ 0\,]$. Hence $E[gb^\top\mid A=a]=-[\Sigma_a^{-1}]_{WW}$, and $E[bb^\top\mid A=a]=[\Sigma_a^{-1}]_{WW}$. Expanding $E[(g+b)(g+b)^\top\mid A=a]$ gives (C.22). The left side of (C.22) is positive semidefinite, which is the Cramér–Rao inequality for location. It is zero if and only if $g=-b$ almost surely, that is, if and only if the conditional score of $W^*$ given $V$ is affine in $(W^*,V)$. That holds exactly when $W^*$ given $V$ is Gaussian with a mean linear in $V$ and a constant covariance. Because $W^*=W+U$ with $U$ Gaussian and independent of $(W,V)$, Cramér's decomposition theorem \citep{cramer1936eigenschaft} transfers the property to $W$ given $V$, and the converse is immediate. $\square$
+
+With one error-prone covariate and no $V$, (C.22) reads $E[\Delta_a^2\mid A=a]=s^2\{I_a-1/v_a\}$, where $I_a$ and $v_a$ are the Fisher information and the variance of $W^*$ in group $a$. This is Brown's identity between the minimum mean-square error of estimating $W$ from $W^*$ and the Fisher information of $W^*$ \citep{brown1971admissible, guo2005mutual}, written as the difference between the nonlinear and the linear predictor. The share of $\mathrm{Var}(W^*\mid A=a)$ that linear calibration misses is therefore $(s/v_a)^2J^\circ_a$, where $J^\circ_a=v_aI_a-1\ge0$ is the standardised Fisher information of $W^*$ in group $a$ \citep{johnson2004fisher}, the excess of its Fisher information over that of a Gaussian with the same variance. The share depends only on the reliability and on the law of the error-prone covariate, so it can be estimated before any outcome model is fitted.
+
+The gap determines the bias of regression calibration when the untreated trend is linear in the error-prone covariates.
+
+\begin{corollary}[Bias of regression calibration with a linear trend]\label{cor:rcbias}
+Suppose $\mu(x)=\beta^\top w+g(v)$, the outcome regression is the conditional mean $m_\eta$ of (C.17), $h_0(\cdot;\eta_0)$ is invertible, and $h_1(Z)$ lies in the support of $h_0(Z)$ among controls. With $Z'=h_0^{-1}(h_1(Z))$,
+\[
+Q(\eta_0)-\tau=-\beta^\top E[\Delta_0(Z')\mid A=1], \tag{C.23}
+\]
+so $|Q(\eta_0)-\tau|\le\|\beta\|\,E[\|\Delta_0(Z')\|^2\mid A=1]^{1/2}$. If the calibration is the posterior mean $E[W\mid Z,A]$ instead of the best linear predictor, the target is $\tau$ for every linear trend, whatever the law of $W$.
+\end{corollary}
+
+*Proof.* For a control preimage $z'$, $m_\eta(h_0(z'))=E[\mu(X)\mid Z=z',A=0]=\beta^\top\{h_0(z')+\Delta_0(z')\}+g(v)$. At a treated unit's calibrated point, $h_0(Z')=h_1(Z)$, so $m_\eta(h_1(Z))=\beta^\top h_1(Z)+\beta^\top\Delta_0(Z')+g(V)$. Then $Q(\eta_0)-\tau=E[\mu(X)-m_\eta(h_1(Z))\mid A=1]=\beta^\top E[\Delta_1(Z)\mid A=1]-\beta^\top E[\Delta_0(Z')\mid A=1]$. The first term is zero because the best linear predictor and the conditional mean have the same mean within the group. With the posterior mean, $\Delta_0\equiv\Delta_1\equiv0$. $\square$
+
+With the numerical integration of Section \ref{sec:map}, (C.23) and the directly computed bias of regression calibration agree to within $10^{-14}$ in three log-normal designs. The corollary explains the failure observed in the fourth amendment. A flexible outcome learner fitted on calibrated controls learns $\beta^\top\{x+\Delta_0\}$, and the gap $\Delta_0$, which is not zero for a skewed covariate, is then evaluated at the treated units' calibrated points. A learner close to linear in the calibrated covariates, such as the lasso with squares in the designs of Section \ref{sec:accuracy}, does not pick up $\Delta_0$ and can come closer to $\tau$ for that reason alone.
+
+*Calibration by the posterior mean and its estimation.* The posterior mean needs the latent law of $W$ given $(V,A)$. Under classical Gaussian error with known $S$, that law can be estimated by the nonparametric maximum likelihood estimator of a Gaussian location mixture \citep{kiefer1956consistency}, and the plug-in posterior mean is the general maximum likelihood empirical Bayes rule \citep{jiang2009general}. \citet{soloff2025multivariate} bound its regret against the posterior mean under the true latent law in the multivariate, heteroscedastic case. Our implementation estimates the law of each error-prone coordinate within each treatment group on the training folds, from a fixed grid of 300 support points by the EM algorithm, and so treats the coordinates as independent given $A$. That is exact in the shape designs and an approximation otherwise. The same estimate gives the gap share of Proposition \ref{prop:gap} as the mean squared difference between the plug-in posterior mean and the best linear predictor, divided by the variance of $W^*$.

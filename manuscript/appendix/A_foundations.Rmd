@@ -1,0 +1,148 @@
+# Identification, the doubly robust remainder and cross-fitting {#app:foundations}
+
+Throughout the appendices, $D=\Delta Y$ is the observed outcome change, $Ph=E[h(O)]$, $P_nh=n^{-1}\sum_i h(O_i)$, $\pi=PA$, $e(x)=P(A=1\mid X=x)$ and $\mu(x)=E[D\mid X=x,A=0]$. Unless stated otherwise, observations are i.i.d., $0<\pi<1$, outcomes have the moments used in each proof, and denominators are bounded away from zero. We keep three kinds of result separate, namely identification, consistency of an estimator, and validity of a standard error.
+
+## Identification from potential outcomes {#app:ident}
+
+By consistency and no anticipation, treated units have $D=Y^{1,1}-Y^{0,0}$ and controls have $D=Y^{0,1}-Y^{0,0}$. Let $D^0=Y^{0,1}-Y^{0,0}$. Conditional parallel trends (Assumption \ref{ass:cpt}) states
+$$
+E[D^0\mid X,A=1]=E[D^0\mid X,A=0]=\mu(X).
+$$
+Consequently
+$$
+\begin{aligned}
+E[D\mid X,A=1]-E[D\mid X,A=0]&=E[D^0+Y^{1,1}-Y^{0,1}\mid X,A=1]-\mu(X)\\
+&=E[Y^{1,1}-Y^{0,1}\mid X,A=1]=:\theta(X),
+\end{aligned}
+$$
+and the population ATT is $\tau=E[\theta(X)\mid A=1]$. Writing $\eta=D-\mu(X)-A\theta(X)$ gives $E[\eta\mid X,A]=0$. The same regression decomposition exists for any observed-data law, but without Assumption \ref{ass:cpt} its $\theta$ need not be a causal effect. Identification therefore rests on the counterfactual restriction, not on the decomposition.
+
+Unconditional parallel trends concerns
+$$
+E[D^0\mid A=1]-E[D^0\mid A=0]=\frac{E[e\mu]}{\pi}-\frac{E[(1-e)\mu]}{1-\pi}=\frac{\operatorname{Cov}(e(X),\mu(X))}{\pi(1-\pi)}. \tag{A.1}
+$$
+It can hold even when both $e$ and $\mu$ depend on $X$. For $X\sim\mathrm{Unif}[-1,1]$, $e(X)=1/2+X/5$ and $\mu(X)=X^2$, symmetry gives $\operatorname{Cov}(e,\mu)=E[X^3]/5=0$. Covariate adjustment is needed when this covariance is non-zero, which is the case in the simulation design of Section \ref{sec:sim}.
+
+## The normalised doubly robust remainder {#app:remainder}
+
+For a candidate propensity $g$ define $\omega_g=(1-A)g(X)/\{1-g(X)\}$, $d_g=P\omega_g$, $w_g=\omega_g/d_g$ and $w_1=A/\pi$. The Hajek doubly robust DiD functional of \citet{santanna2020doubly} is
+$$
+T_P(g,m)=P[w_1(D-m)]-P[w_g(D-m)].
+$$
+Assume $e,g\le1-\epsilon$ and $d_g\ge d_0>0$. A lower bound on $e$ is not needed for the ATT.
+
+For any integrable $h$,
+$$
+P[\omega_e h(X)]=E\Big[\{1-e(X)\}\frac{e(X)}{1-e(X)}h(X)\Big]=E[e(X)h(X)]=P[Ah(X)],
+$$
+so $d_e=\pi$ and $P[w_eh]=P[w_1h]$. Substituting $D=\mu+A\theta+\eta$, and using $E[\eta\mid A,X]=0$ and $\omega_gA=0$,
+$$
+P[w_1(D-m)]=\tau+P[w_1(\mu-m)],\qquad P[w_g(D-m)]=P[w_g(\mu-m)].
+$$
+Subtraction gives the exact identity
+$$
+T_P(g,m)-\tau=P[(w_e-w_g)(\mu-m)]. \tag{A.2}
+$$
+Identity (A.2) gives both consistency branches ($g=e$ or $m=\mu$) and first-order insensitivity at $(e,\mu)$. For an explicit bound, the odds satisfy
+$$
+\Big|\frac{g}{1-g}-\frac{e}{1-e}\Big|=\frac{|g-e|}{(1-g)(1-e)}\le\epsilon^{-2}|g-e|.
+$$
+With $a=\|g-e\|_2$, $\|\omega_g-\omega_e\|_2\le\epsilon^{-2}a$ and $|d_g-\pi|\le\epsilon^{-2}a$. Since $w_g-w_e=(\omega_g-\omega_e)/d_g+\omega_e(\pi-d_g)/(d_g\pi)$,
+$$
+\|w_g-w_e\|_2\le\frac{\epsilon^{-2}}{d_0}\Big(1+\frac{\|\omega_e\|_2}{\pi}\Big)a,
+$$
+and Cauchy–Schwarz applied to (A.2) yields $|T_P(g,m)-\tau|\le C\|g-e\|_2\|m-\mu\|_2$ with an explicit finite $C$.
+
+The normalised weights determine the functional, not the propensity itself. On control support with $0<e<1$,
+$$
+w_g=w_e\iff\frac{g}{1-g}=\frac{d_g}{\pi}\frac{e}{1-e},
+$$
+so $g_c=ce/(1-e+ce)$ gives the same weights as $e$ for every $c>0$. The map $h\mapsto P[(w_e-w_g)h(X)]$ vanishes for every admissible $h$ exactly when the two normalised weighting functions agree almost surely.
+
+## Cross-fitting with pooled and fold-normalised weights {#app:crossfit}
+
+Let $I_1,\dots,I_K$ be fixed folds with $\lambda_k=|I_k|/n\to\lambda_k^0>0$, let $(g_k,m_k)$ be trained outside $I_k$, and write $h_k=\mu-m_k$. Assume
+$$
+a_n=\max_k\|g_k-e\|_2=o_p(1),\quad b_n=\max_k\|m_k-\mu\|_2=o_p(1),\quad a_nb_n=o_p(n^{-1/2}), \tag{A.3}
+$$
+bounded weights as above, $D\in L^2$, and
+$$
+\max_k\|(\omega_{g_k}-\omega_e)(D-\mu)\|_2=o_p(1). \tag{A.4}
+$$
+Condition (A.4) follows, for example, from a bounded conditional second moment of $D-\mu$ and $a_n=o_p(1)$.
+
+*Pooled normalisation.* Pooling numerators and denominators across folds gives population moments $H=\sum_k\lambda_kP[Ah_k]$, $G=\sum_k\lambda_kP[\omega_{g_k}h_k]$ and $\bar d=\sum_k\lambda_kd_{g_k}$, and the population version of the pooled estimator is $\tau+H/\pi-G/\bar d$. Its exact drift is
+$$
+R=\frac{H(\bar d-\pi)}{\pi\bar d}-\frac{G-H}{\bar d}, \tag{A.5}
+$$
+with $|H|\le b_n$, $|\bar d-\pi|\le Ca_n$, and, because $P[\omega_eh_k]=P[Ah_k]$, $|G-H|=|\sum_k\lambda_kP[(\omega_{g_k}-\omega_e)h_k]|\le Ca_nb_n$. Hence $R=O_p(a_nb_n)=o_p(n^{-1/2})$.
+
+*Stochastic terms.* For a function $v_k$ that depends only on the training data, independence of the held-out observations gives $E[\{(P_{n,k}-P)v_k\}^2\mid\text{training}]\le|I_k|^{-1}P[v_k^2]$. The control numerator difference decomposes as $\omega_{g_k}(D-m_k)-\omega_e(D-\mu)=(\omega_{g_k}-\omega_e)(D-\mu)+\omega_{g_k}(\mu-m_k)$, whose $L^2$ norm is $o_p(1)$ by (A.3)–(A.4). The other differences are $Ah_k$ and $\omega_{g_k}-\omega_e$. Conditional Chebyshev and a finite sum over folds make all empirical-process differences $o_p(n^{-1/2})$. Independence between folds is not needed.
+
+*Ratio expansion.* Expanding the smooth ratio map around the population moments, whose centred empirical versions are $O_p(n^{-1/2})$, gives
+$$
+\sqrt n(\hat\tau-\tau)=n^{-1/2}\sum_i\psi(O_i)+o_p(1),\qquad \psi=\frac A\pi(D-\mu-\tau)-\frac{(1-A)e}{\pi(1-e)}(D-\mu). \tag{A.6}
+$$
+The same conditional $L^2$ bounds give $P_n(\hat\psi-\psi)^2=o_p(1)$, and
+$|P_n\hat\psi^2-P_n\psi^2|\le\{P_n(\hat\psi-\psi)^2\}^{1/2}[2(P_n\psi^2)^{1/2}+\{P_n(\hat\psi-\psi)^2\}^{1/2}]=o_p(1)$,
+so the empirical variance of the estimated influence values is consistent. With folds stratified by treatment, the argument applies within each stratum conditional on the labels.
+
+\begin{remark}[Per-fold product rates are not enough for pooled weights]\label{rem:pooled}
+Requiring only $\|g_k-e\|_2\|m_k-\mu\|_2=o_p(n^{-1/2})$ for every $k$ is insufficient under pooled normalisation. Take two equal folds with constant $e=p$, $g_1=p+a_n$, $m_1=\mu$, $g_2=p$, $m_2=\mu+b_n$. Each fold's product is zero. With $d_1=(1-p)(p+a_n)/(1-p-a_n)$ and $\bar d=(d_1+p)/2$, the pooled drift is
+$R=-b_n/2+pb_n/(2\bar d)=-b_n(d_1-p)/(4\bar d)\sim-a_nb_n/\{4p(1-p)\}$,
+which is of order $n^{-1/4}$ when $a_n=b_n=n^{-1/8}$. Condition (A.3), with its maxima over folds, or averaging separately normalised fold estimators, removes the problem. The revised estimator of Section \ref{sec:method} uses fold-normalised weights.
+\end{remark}
+
+These arguments specialise the DR-DiD and double machine learning theory of \citet{santanna2020doubly} and \citet{chernozhukov2018double}.
+
+## One correct nuisance, clipping and propensity-only weighting {#app:onenuisance}
+
+At $g=e$ with an arbitrary fixed $m$, write $r_m=\mu-m$ and $\bar r_m=E[r_m\mid A=1]$. Along $g_t=e+th$,
+$$
+\frac{d}{dt}T_P(g_t,m)\Big|_{t=0}=-\frac1\pi E\Big[\frac{h(X)}{1-e(X)}\{r_m(X)-\bar r_m\}\Big]. \tag{A.7}
+$$
+At $m=\mu$ with arbitrary $g$, $D_mT_P(g,\mu)[h]=-P[(w_1-w_g)h(X)]$. Neither derivative vanishes in general. A single correctly estimated nuisance therefore gives consistency, but not the influence function (A.6) at arbitrary machine-learning rates.
+
+Clipping the propensity to $[0.02,0.98]$ replaces $e$ by $g_c=\min\{0.98,\max(0.02,e)\}$ in the limit. If $e$ leaves this interval with positive probability, the limiting bias is $P[(w_e-w_{g_c})(\mu-m_\infty)]$, which is zero when $m_\infty=\mu$, while the derivative in $m$ remains non-zero. A fixed clipping interval is compatible with (A.6) only if it contains the true propensity. Logit or probit propensities with unbounded covariates do not guarantee this.
+
+Setting $m=0$ (inverse probability weighting with a learned propensity only) in (A.7) gives
+$$
+D_gT_P(e,0)[h]=-\frac1\pi E\Big[\frac{h(X)}{1-e(X)}\{\mu(X)-\mu_T\}\Big],\qquad\mu_T=E[\mu(X)\mid A=1]. \tag{A.8}
+$$
+Cross-fitting does not remove this derivative, so the plug-in influence function of a forest- or boosting-based IPW estimator has no general justification. For a correctly specified logit $e_\beta=\mathrm{expit}(x^\top\beta)$ with score $x(A-e)$ and information $I=E[e(1-e)xx^\top]$, the chain rule gives the corrected influence function
+$$
+\psi_{\mathrm{IPW}}=\frac A\pi\{D-E[D\mid A=1]\}-\frac{(1-A)e}{\pi(1-e)}(D-\mu_T)+\Gamma^\top I^{-1}x(A-e),\qquad\Gamma=-\pi^{-1}E[ex(\mu-\mu_T)], \tag{A.9}
+$$
+the parametric case implemented by \citet{abadie2005semiparametric}-type estimators with an estimated propensity. We report forest and boosting IPW intervals as benchmarks without an inference guarantee.
+
+## Outcome measurement error {#app:outcome}
+
+Let $a(O)=w_1-w_e$.
+
+*Additive conditionally mean-zero error.* If $D^*=D+U$ with $E[U\mid A,X]=0$, then $\mu^*=\mu$, $\theta^*=\theta$, and for every admissible $(g,m)$, $T_{P^*}(g,m)-T_P(g,m)=E[(w_1-w_g)U]=0$. At the true nuisances $\psi^*=\psi+aU$ and
+$$
+\operatorname{Var}(\psi^*)=\operatorname{Var}(\psi)+2E[\psi aU]+E[a^2U^2]. \tag{A.10}
+$$
+The cross term vanishes if $E[U\mid D,A,X]=0$, and the increment is then $E[a^2v(A,X)]$ when $E[U^2\mid D,A,X]=v(A,X)$. Under the weaker assumption the variance can fall. For example, $U=-\eta$ has conditional mean zero and removes residual noise.
+
+*Mean-reverting error.* For $D^*=(1+\gamma)D+U$ with $\gamma\neq-1$ and conditionally mean-zero $U$, $\mu^*=(1+\gamma)\mu$, $\theta^*=(1+\gamma)\theta$, $\tau^*=(1+\gamma)\tau$ and $T_{P^*}(g,m)=(1+\gamma)T_P(g,m/(1+\gamma))$. Every consistent DR-DiD estimator therefore converges to $(1+\gamma)\tau$. The covariate-blind DiD converges to $(1+\gamma)(\tau+b_{\mathrm{blind}})$ with $b_{\mathrm{blind}}=E[\mu\mid A=1]-E[\mu\mid A=0]$, so its bias relative to $\tau$ is $\gamma\tau+(1+\gamma)b_{\mathrm{blind}}$, which can be smaller than $|b_{\mathrm{blind}}|$.
+
+*Covariate-dependent shift.* For $D^*=D+\rho\phi(X)$, $\mu^*=\mu+\rho\phi$, $\theta^*=\theta$ and, by (A.2),
+$$
+T_{P^*}(g,m)-\tau=P[(w_e-w_g)(\mu+\rho\phi-m)]. \tag{A.11}
+$$
+The DR functional remains consistent if $g=e$ or $m=\mu+\rho\phi$. The efficient influence function is unchanged at the updated regression, but the regression surface a learner must fit has changed.
+
+## Population and sample targets {#app:targets}
+
+The original study scores estimators against $\tau_n=P_n[A\theta(X)]/P_nA$, while (A.6) targets $\tau=P[A\theta]/\pi$. A ratio expansion gives $\sqrt n(\tau_n-\tau)=n^{-1/2}\sum_iA_i\{\theta(X_i)-\tau\}/\pi+o_p(1)$, hence
+$$
+\sqrt n(\hat\tau-\tau_n)=n^{-1/2}\sum_i\zeta(O_i)+o_p(1),\qquad\zeta=\psi-\frac A\pi(\theta-\tau)=\frac A\pi\eta-\frac{(1-A)e}{\pi(1-e)}\eta.
+$$
+Because $E[\eta\mid A,X]=0$, the two pieces are uncorrelated and
+$$
+\operatorname{Var}(\psi)=\operatorname{Var}(\zeta)+\pi^{-2}E[A\{\theta(X)-\tau\}^2]. \tag{A.12}
+$$
+An interval built for the population ATT therefore over-covers the sample ATT when effects are heterogeneous. In the nonlinear design the second term is small. The sample ATT ranges from 0.181 to 0.219 around the population value 0.1998 (Appendix \ref{app:results}). Under covariate error, extrapolation or treatment correction, the estimator's influence function must be derived on the joint latent and observed law before this decomposition applies.
+
+These results concern the stated estimating equations under their rate and moment conditions. They do not establish asymptotic normality for matching, causal forests or Bayesian causal forests, which we evaluate empirically only.

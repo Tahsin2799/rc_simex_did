@@ -1,0 +1,75 @@
+---
+title: "Regression Calibration and SIMEX for Mismeasured Covariates in Doubly Robust Difference-in-Differences"
+author: "Tahsin Shahriar"
+date: "Version of `r format(Sys.Date(), '%d %B %Y')`"
+abstract: |
+  Doubly robust difference-in-differences (DiD) with cross-fitted, machine-learned propensity and outcome models is routine in evaluations that use household surveys, where many covariates are self-reported. Double robustness protects against misspecified models, not against mismeasured covariates. We study regression calibration and simulation-extrapolation (SIMEX), the two corrections that need only the reliability of each error-prone covariate, inside this estimator for the average treatment effect on the treated (ATT). With the error variance estimated on the training folds, both corrections have influence functions, and hence standard errors, that account for that estimation. For SIMEX, a bound on the third derivative of its extrapolation curve turns the extrapolation error into a bias-aware interval. For regression calibration, the bias under a linear trend is the gap between the posterior mean and the best linear predictor of the true covariate, which is zero exactly when that covariate is Gaussian within each treatment group. In a 64-cell simulation fixed in advance and in dated follow-up studies, regression calibration matched the estimator on the true covariates in all twelve cells with classical error. Estimating its calibration carried `r {source("R/manuscript_setup.R"); rc_term_rng()}`% of its variance in Gaussian designs, against at most `r fmt(simex_share("gauss"), 1)`% for SIMEX in the same designs. Exact population calculations show that neither correction dominates. SIMEX is closer to the ATT when the covariate is skewed and its reliability is high, and the flexibility of the outcome learner can reverse the ranking. Neither correction helps when the error depends on treatment. An application to the Bangladesh Integrated Household Survey shows the diagnostics and the sensitivity of an adjusted schooling contrast, which the design does not identify as a policy effect.
+keywords: "difference-in-differences; measurement error; regression calibration; SIMEX; double machine learning; bias-aware inference"
+output:
+  pdf_document:
+    number_sections: true
+    keep_tex: true
+    toc: false
+    fig_caption: true
+    latex_engine: pdflatex
+link-citations: true
+linkcolor: blue
+geometry: margin=1in
+fontsize: 11pt
+linestretch: 1.15
+header-includes:
+  - \usepackage{amsmath,amsthm,amssymb,bm,booktabs,longtable,float,caption}
+  - \usepackage[round]{natbib}
+  - \bibliographystyle{apalike}
+  - \captionsetup{font=small,labelfont=bf}
+  - \newtheorem{theorem}{Theorem}
+  - \newtheorem{proposition}{Proposition}
+  - \newtheorem{lemma}{Lemma}
+  - \newtheorem{corollary}{Corollary}
+  - \theoremstyle{definition}
+  - \newtheorem{assumption}{Assumption}
+  - \theoremstyle{remark}
+  - \newtheorem{remark}{Remark}
+  - \usepackage{tikz}
+  - \usetikzlibrary{arrows.meta,fit}
+  - \DeclareUnicodeCharacter{2212}{\ensuremath{-}}
+  - \DeclareMathOperator*{\argmin}{arg\,min}
+  - \DeclareMathOperator*{\argmax}{arg\,max}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align = "center",
+                      fig.pos = "tb", out.extra = "")
+source("R/manuscript_setup.R")
+```
+
+```{r child = "sections/main.Rmd"}
+```
+
+\bibliography{references}
+
+\appendix
+
+```{r child = "appendix/A_foundations.Rmd"}
+```
+
+```{r child = "appendix/B_covariate.Rmd"}
+```
+
+```{r child = "appendix/C_simex.Rmd"}
+```
+
+```{r child = "appendix/D_misclass.Rmd"}
+```
+
+```{r child = "appendix/E_computation.Rmd"}
+```
+
+```{r child = "appendix/F_results.Rmd"}
+```
+
+```{r child = "appendix/G_application.Rmd"}
+```
+
+```{r child = "appendix/H_reproducibility.Rmd"}
+```

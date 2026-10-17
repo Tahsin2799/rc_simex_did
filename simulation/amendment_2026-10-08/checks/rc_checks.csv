@@ -1,0 +1,6 @@
+"check","value","pass"
+"draw_identical",NA,TRUE
+"naive_vs_q0",0.000652746981805619,TRUE
+"rc_group",-0.00272891052199908,TRUE
+"rc_pooled",2.22044604925031e-16,TRUE
+"latent",0.00348177769060221,TRUE

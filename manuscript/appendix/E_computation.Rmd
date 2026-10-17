@@ -1,0 +1,78 @@
+# Simulation designs and computation {#app:computation}
+
+## Data-generating process of the original study
+
+The covariates are drawn independently. Of the continuous ones, $c_1$, $c_3$, $c_6$, $c_8$ and $c_{18}$ are Gaussian, $c_4$ (household size) and $c_{14}$ are rounded and truncated Gaussians, $c_{12}$, $c_{15}$ and $c_{17}$ are Gaussians truncated to $[0,1]$, and $c_{16}$ and $c_{19}$ are Gaussians truncated at 0. Of the discrete ones, $c_2$, $c_5$, $c_7$, $c_{11}$ and $c_{13}$ are Bernoulli, and $c_9$, $c_{10}$ and $c_{20}$ are categorical. Their moments are taken from BIHS round 1, so "calibrated" refers to marginal moments, not to the joint distribution. The age moments ($c_1$, mean 28.0, SD 17.0) come from a month-scale young-child file and do not represent the school-age cohort of Section \ref{sec:app}.
+
+With standardised $z_k$ and dummies for $c_9$ and $c_{10}$, treatment follows a logit $A\sim\mathrm{Bern}\{\mathrm{expit}(-0.55+\kappa_X^\top x)\}$ in layers A and B ($c_1$–$c_{10}$). The outcome is
+$$
+Y_{i0}=5+\beta^\top x_i+\mathrm{nl}(x_i)+\upsilon_i+\varepsilon_{i0},\qquad Y_{i1}=Y_{i0}-\varepsilon_{i0}+\varepsilon_{i1}+0.2+\delta_X^\top x_i+\mathrm{nlt}(x_i)+\theta_iA_i,
+$$
+with $\delta_X=\beta/2$, $\upsilon_i\sim N(0,0.7^2)$ and $\varepsilon_{it}\sim N(0,0.7^2)$. The coefficients are listed in Table \ref{tab:coefs}. The nonlinear family adds the standardised surface $h=\{0.10z_1z_6+0.15\sin z_3+0.10(z_4^2-1)+0.10c_2z_3+0.08c_7z_6\}/0.19$, with $\mathrm{nl}=0.19h$ and $\mathrm{nlt}=0.10h$, and heterogeneous effects $\theta_i=0.2(1+0.3z_{11}+0.2z_{12}-0.1z_{13}+0.1z_{14}+0.1z_{15})$. Conditional parallel trends holds by construction, and unconditional parallel trends fails because $\delta_X\neq0$.
+
+```{r coefs}
+cf_tab <- data.frame(
+  Term = c("c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9 (d1--d6)", "c10 (d1, d2)"),
+  `Propensity coefficient` = c("0.20", "0.00", "-0.35", "0.20", "-0.40", "-0.10", "0.30", "0.10", "0.20, 0.00, 0.10, 0.30, 0.40, 0.20", "-0.20, -0.40"),
+  `Level coefficient` = c("0.30", "0.10", "0.40", "-0.20", "0.30", "0.15", "-0.10", "0.10", "0.10, 0.20, 0.05, -0.10, -0.15, -0.05", "0.20, 0.40"),
+  check.names = FALSE)
+kbl2(cf_tab, "Coefficients of the original data-generating process. Continuous terms enter standardised, and the trend coefficients are $\\delta_X=\\beta/2$.", escape = TRUE)
+```
+
+The measurement designs are as follows.
+
+- Classical covariate error at reliability $r$ adds $N(0,\mathrm{sd}(W_k)^2(1/r-1))$ to $c_1$, $c_3$, $c_4$, $c_6$ and $c_8$, using the sample SD of the true covariate.
+- Differential covariate error adds $\mathrm{sd}(W_k)(\delta_aA+\epsilon)$ with one shared shock $\epsilon\sim N(0,0.1^2)$ and $\delta_a\in\{0.1,0.3,0.5\}$.
+- Misclassification flips $A$ with probabilities $(\alpha_0,\alpha_1)\in\{(0.02,0.02),(0.05,0.10),(0.10,0.20)\}$.
+- Outcome error is classical ($\sigma=0.7$), differential by arm ($0.7$ and $1.75$), mean-reverting ($\gamma=-0.3$, noise $0.35$), or a covariate-dependent shift at time 1, $\rho\sigma_\varepsilon h$ with $\rho\in\{0.25,0.5,1\}$, plus $N(0,0.35^2)$ noise.
+
+## Estimators and tuning
+
+All covariate-adjusting estimators receive the 27-column design matrix of $c_1$–$c_{20}$, with dummies for categorical variables, dropping any column that is constant in the sample.
+
+\begingroup\footnotesize
+
+| Component | Setting |
+|--------|-------------------|
+| Cross-fitting | $K=5$ folds, stratified by treatment (simulations), or whole villages per fold (BIHS) |
+| Propensity clipping | $[0.02,0.98]$ in the DR-DiD score |
+| Lasso (lasso with squares) | `cv.glmnet`, 5-fold CV, `lambda.min`, 50-value path to $0.01\lambda_{\max}$, on the raw columns plus squares of the 12 non-binary columns, standardised on the training fold |
+| Lasso with interactions | as above plus 136 pairwise products (baseline panel only) |
+| Spline lasso | `cv.glmnet` on natural splines with 5 degrees of freedom in each non-binary column (fourth amendment), with each column clamped to its training range first in the fifth amendment |
+| Random forest | `ranger`, 500 trees, minimum node size 5 |
+| Boosting | `xgboost`, learning rate 0.05, depth 3, subsample 0.7, column sample 0.8, minimum child weight 5, with rounds chosen by early stopping (20) on a 20% hold-out, then refitted |
+| Causal forest | `grf::causal_forest`, defaults, ATT by the doubly robust score |
+| Bayesian causal forest | `bcf`, 1 chain, 250 burn-in, 1,000 draws, 100/50 trees, logit propensity |
+| Matching | optimal full matching on the logit propensity (`MatchIt`), SEs clustered by matched set |
+| SIMEX | grid $(0,0.5,1,2)$, $B=20$, quadratic extrapolant, with full-sample calibration and pooled normalisation in the original study and cross-fitted calibration as in Section \ref{sec:simexmethod} in the revised version |
+| Regression calibration | best linear predictor within treatment groups (C.17), with full-sample calibration (second amendment) or cross-fitted calibration (third to fifth amendments) |
+| Posterior-mean calibration | grid NPMLE of each error-prone coordinate's law within each treatment group, 300 support points, 400 EM steps, on the training folds |
+| Misclassification correction | known probabilities, lasso or boosting nuisances, and H (ATT) and R targets |
+
+Table: Estimators, learners and tuning settings used in all studies.
+
+\endgroup
+
+## Designs of the amendments
+
+*Closed-form Gaussian design (first and second amendments).* This is the Gaussian member ($\omega=0$, $\beta_q=0$) of the two-covariate family (7) of Section \ref{sec:popmap}. The true $W_c\mid A\sim N(\Delta_cA,\,1-s_{0c})$ with $\Delta=(0.6,0.4)$, $W^*=W+N(0,s_0)$ and $s_0=(1-r_0)\mathrm{Var}(W^*)$, and the outcome is $D=W_1+0.8W_2+0.5V+0.5A+N(0,1)$, so $\beta=(1,0.8)$. With assumed error variance $s_L=(1-r_L)\mathrm{Var}(W^*)$, the distribution of the simulated data at every noise level has a logit-linear propensity and a linear control mean, and
+$$
+q(\lambda)=0.5+\sum_c\beta_c\Delta_c\Big\{1-\frac{1-s_{0c}}{1+\lambda s_{Lc}}\Big\},\qquad q\big(-(1-r_0)/(1-r_L)\big)=0.5.
+$$
+The true derivative bound is $M=\sum_c6\beta_c\Delta_c(1-s_{0c})s_{Lc}^3/(1-s_{0c})^4$, attained at the lower end of the domain.
+
+*BIHS semi-synthetic design (first amendment).* Whole villages are resampled from the analytic cohort. Treatment is drawn from the logit of the real treatment on the covariates. The outcome is the fitted linear control-trend model, plus $0.25\hat\sigma z_{\mathrm{assets}}z_{\mathrm{land}}$, plus a village effect with variance $0.2\hat\sigma^2$, child noise with variance $0.8\hat\sigma^2$, and $0.25A$. Classical Gaussian error with variance $(1/0.7-1)\mathrm{Var}(W)$ is added to log assets and log land. Population summaries are in Table \ref{tab:semipop}.
+
+*Covariate-shape design (third and fourth amendments).* This is the family (7) with its first two moments kept, so that $W_c=\Delta_cA+(1-s_{0c})^{1/2}L_c$, where the $L_c$ are independent and either standard Gaussian or standardised log-normal, $L=\{e^{\omega G}-e^{\omega^2/2}\}/\{(e^{\omega^2}-1)e^{\omega^2}\}^{1/2}$ with $G\sim N(0,1)$. The third amendment uses $\omega=0.8$ (skewness 3.7, excess kurtosis 31) and reliability 0.6, and the fourth uses $\omega=1$ (skewness 6.2) and reliability 0.9. The outcome adds $\beta_q(W_1^2-EW_1^2)$ with $\beta_q\in\{0,0.5\}$. In the Gaussian case, the variance of the quadratic term is about one fifth of that of the linear part. Means, variances and covariances of $(W,W^*,V,A)$ do not depend on the shape, so the best linear predictor of regression calibration is the same in every cell with the same reliability. The effect is constant, so the sample ATT is 0.5 in every replicate. The fourth amendment has four cells (Table \ref{tab:a45all}), each fitted with the lasso with squares and, in the three log-normal cells, also with the spline lasso. The fifth amendment refits the three spline-lasso cells with the clamped spline lasso on the same data and folds.
+
+## Computation of the population targets
+
+The targets of Section \ref{sec:map} use the covariate-shape design with $\omega\in\{0,0.25,0.5,0.75,1\}$, reliability $r\in\{0.5,0.6,0.7,0.8,0.9,0.95\}$, $\beta_q\in\{0,0.5\}$, and a treated-to-control variance ratio of 1 or 2 for $W_1$. Because the coordinates are independent given $A$ and the trend is additive, each target is a sum over coordinates of one-dimensional integrals. For coordinate $c$ with error variance $s$, the naive bias is $E_1f(W)-E_{y\sim W^*_s\mid A=1}E_0[f(W)\mid W^*_s=y]$, and the bias of regression calibration replaces $y$ in the inner conditional mean by the control preimage $h_0^{-1}(h_1(y))$ of the treated unit's calibrated point. SIMEX extrapolates the naive bias at $s=s_0(1+\lambda)$, $\lambda\in\{0,0.5,1,2\}$, quadratically to $\lambda=-1$. The latent law is integrated on 2,001 equally spaced points of the standard normal on $[-8.5,8.5]$, the error on 161 points on $[-7,7]$, and the inner conditional mean is tabulated on 1,200 points up to the 99.99th latent percentile plus 300 log-spaced points through the far tail.
+
+Three checks support the values. In the Gaussian designs they reproduce the closed form. When every grid is doubled, no target in six designs chosen for their large values changed by more than `r fmt(max(ex$popmap$convergence$max_abs_diff) * 1e5, 1)` $\times10^{-5}$. A brute-force computation, which draws $6\times10^6$ controls and $4\times10^6$ treated units and estimates the inner conditional mean by averaging within 6,000 quantile bins of $W^*$, shares only the design with the map. It agrees with the map to within `r fmt(max(abs(c(ex$popmap$mc$rc_mc - ex$popmap$mc$rc_map, ex$popmap$mc$naive_mc - ex$popmap$mc$naive_map))), 3)` in four designs, including the mildly skewed design at reliability 0.5 where regression calibration's bias is `r nm(ex$popmap$mc$rc_map[ex$popmap$mc$sl == 0.25 & ex$popmap$mc$bq == 0], 3)`. Finally, (C.23) and the directly computed bias of regression calibration agree to within $10^{-14}$ in three log-normal designs.
+
+*The estimated gap share.* The gap share of Section \ref{sec:gap} is estimated as the mean squared difference between the posterior mean under the NPMLE law and the sample best linear predictor, divided by the sample variance of $W^*$, within one treatment group. In 20 samples of 3,000 controls, the estimate tracked the true share in the log-normal designs (Section \ref{sec:gap}). For a Gaussian covariate the true share is zero, but the estimate is positive because the NPMLE overfits. Its 95th percentile over 200 Gaussian samples at reliability 0.6 is `r fmt(ex$popmap$resolution$q95[ex$popmap$resolution$n == 682 & ex$popmap$resolution$reliability == 0.6], 3)` with 682 units and `r fmt(ex$popmap$resolution$q95[ex$popmap$resolution$n == 220 & ex$popmap$resolution$reliability == 0.6], 3)` with 220 units, the group sizes of the BIHS cohort. The estimate for the original design (Section \ref{sec:accuracy}) uses 20,000 draws per group.
+
+## Run time
+
+With one thread per replicate, SIMEX on the original design, run with both calibration arms, took a median of `r fmt(cv("dgp_simex", "x_classical__r0.60__nonlinear__N5000", "glmnet", "runtime_task_median_s"), 0)` seconds per replicate at $n=5{,}000$ and `r fmt(cv("dgp_simex", "x_classical__r0.60__nonlinear__N1000", "glmnet", "runtime_task_median_s"), 0)` at $n=1{,}000$. In the covariate-shape designs, SIMEX took about 95% of the computing time of each replicate.

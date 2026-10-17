@@ -1,0 +1,99 @@
+# Details of the BIHS application {#app:appdoc}
+
+## Variables and coding
+
+\begingroup\footnotesize
+
+| Concept | BIHS variable (round) | Coding |
+|------|---------|-------------|
+| Household, member | `a01`, `mid` (R1, R2), and `a01`, `mid` / `mid_b2` (R3 roster / education module) | person key `a01_mid`. Split households have decimal `a01` in R2/R3 and are linked on its integer part. Ambiguous matches are dropped |
+| Member status | `mem_stat` (R2, R3) | 0 = member in both rounds, others excluded |
+| Age, sex | `b1_02`, `b1_01` | completed years, sex consistent across rounds, ageing 2–6 years (R1→R2) and 5–10 (R1→R3) |
+| Attending school | `b1_09` | 1 = yes, 2 = no |
+| Completed schooling | `b1_08` | classes 0–16 as years, SSC/HSC candidate (22/33) as 9/11, preschool (66/67) and never attended (99) as 0, professional codes (71–76) missing |
+| Current programme | `b2_09` | code 5 = 100/125 taka primary stipend (all rounds), missing module record = unknown |
+| Earlier programmes | `b2_12a`, `b2_12b` | any code 5 = past stipend |
+| Village | `uncode`, `vcode_n` (module A, R1) | cluster identifier |
+| Household head | `a11` (module A) | head's member ID, used to take sex, age and schooling from the roster |
+| Assets | module D1, `d1_10` | sum of current values of owned items, then log(1 + value) |
+| Land | module G, `g02` | area (decimals) of plots owned by a member or jointly, 0 if none, then log(1 + area) |
+
+Table: BIHS variables used in the application and their coding.
+
+\endgroup
+
+Programme codes differ across rounds outside code 5 (the secondary stipend is code 7 in R1 and 8 in R2), so labels rather than numbers were harmonised. The questionnaires' skip patterns were not re-verified, so a missing programme code is treated as unknown, not as untreated.
+
+```{r history}
+yrs <- \(x) gsub("([0-9]{4})-([0-9]{2})", "\\1--\\2", x)            # 2011-15 -> 2011--15 (en dash)
+cap1 <- \(x) paste0(toupper(substr(x, 1, 1)), substring(x, 2))
+hh <- ex$app$history |> mutate(across(where(is.character), \(x) cap1(yrs(x))), across(where(is.numeric), big))
+names(hh) <- c("Stipend history by 2011", "Status in 2015", "Children")
+kbl2(hh, "Exposure histories of children aged 6--10 attending school in 2011, before restricting by exposure.", align = "llr")
+```
+
+```{r receipt}
+rct <- ex$app$receipt |> mutate(enrolled_now15 = ifelse(is.na(enrolled_now15), "missing", ifelse(enrolled_now15 == 1, "yes", "no")),
+                               across(where(is.character), \(x) cap1(yrs(x))), across(where(is.numeric), big))
+names(rct) <- c("Status in 2015", "Attending in 2015", "Children")
+kbl2(rct, "Stipend status in 2015 by school attendance in 2015, among linked children without a stipend by 2011.", align = "llr")
+```
+
+```{r balance}
+# Division codes and names as in the BIHS round-1 module A (div, div_name); Barisal (10) is the omitted category.
+div_lab <- c(`20` = "Chittagong", `30` = "Dhaka", `40` = "Khulna", `50` = "Rajshahi", `55` = "Rangpur", `60` = "Sylhet")
+cov_lab <- c(age11 = "Age in 2011 (years)", female = "Female", hh_size = "Household size",
+             n_child_5_15 = "Children aged 5--15", max_adult_yrs = "Highest adult schooling (years)",
+             head_female = "Female head", head_age = "Head's age (years)", head_yrs = "Head's schooling (years)",
+             log_assets = "Log assets", log_land = "Log land")
+lab_cov <- function(x) ifelse(x %in% names(cov_lab), cov_lab[x],
+                              ifelse(grepl("^factor\\.division\\.", x),
+                                     paste(div_lab[sub("^factor\\.division\\.", "", x)], "division"), x))
+bl <- ex$app$balance |> filter(sample == "analytic cohort") |>
+  transmute(Covariate = lab_cov(covariate), `Mean, treated` = fmt(mean_treated, 2),
+            `Mean, comparison` = fmt(mean_control, 2), `SMD, unweighted` = fmt(smd_raw),
+            `SMD, weighted` = fmt(smd_weighted))
+stopifnot(!any(grepl("_|factor", bl$Covariate)))
+kbl2(bl, "Covariate balance in the analytic cohort. Standardised mean differences (SMD) are shown before and after weighting the comparison group by the cross-fitted lasso propensity odds. Division indicators are relative to Barisal.", align = "lrrrr")
+```
+
+```{r overlaptab}
+ov <- ex$app$overlap |> mutate(sample = ifelse(sample == "analytic cohort", "Analytic cohort", "Attending in 2015"),
+                               group = recode(group, treated = "Treated", control = "Comparison")) |>
+  transmute(Sample = sample, Group = group, n, Villages = clusters, `PS, 1st pct.` = fmt(ps_p01),
+            `PS, median` = fmt(ps_median), `PS, 99th pct.` = fmt(ps_p99),
+            Clipped = fmt(frac_clipped, 4), ESS = ifelse(is.na(control_weight_ess), "", fmt(control_weight_ess, 0)))
+kbl2(ov, "Overlap. Cross-fitted lasso propensity scores (PS) by group, the fraction outside [0.02, 0.98] that was clipped, and the effective sample size (ESS) of the comparison weights.", align = "llrrrrrrr")
+```
+
+```{r curvetab}
+cvt <- ex$app$curve |> filter(sample == "analytic cohort") |>
+  transmute(`$\\lambda$` = fmt(lambda, 1), `$\\bar Q_\\lambda$` = fmt(Q, 4), SE = fmt(se, 4),
+            `SD over $b$` = ifelse(is.na(sd_over_b), "", fmt(sd_over_b, 4)))
+kbl2(cvt, "SIMEX grid for the analytic cohort (assumed reliability 0.6, $B=20$). Columns give the grid means, their village-clustered SEs and the spread of the 20 simulated fits.", escape = FALSE, align = "rrrr")
+```
+
+```{r semipop}
+spop <- ex$app$semipop; names(spop) <- c("Quantity", "Value")
+sp_lab <- c(children = "Children", villages = "Villages", `covariate columns` = "Covariate columns",
+            `tau (years)` = "ATT $\\tau$ (years)", `outcome residual sd` = "Outcome residual SD",
+            `village share of residual variance` = "Village share of the residual variance",
+            `nonlinear coefficient` = "Coefficient of the nonlinear term",
+            `reliability r0 (log assets, log land)` = "Reliability of log assets and log land",
+            `propensity p01` = "Propensity score, 1st percentile", `propensity median` = "Propensity score, median",
+            `propensity p99` = "Propensity score, 99th percentile", `mean propensity` = "Mean propensity score")
+stopifnot(all(spop$Quantity %in% names(sp_lab))); spop$Quantity <- sp_lab[spop$Quantity]
+spop$Value <- vapply(spop$Value, \(v) format(signif(v, 4), big.mark = ",", scientific = FALSE, drop0trailing = TRUE), "")
+kbl2(spop, "Population of the BIHS semi-synthetic design.", align = "lr", escape = FALSE)
+```
+
+## Semi-synthetic design {#app:semi}
+
+To see how SIMEX behaves with real joint covariate distributions and village clustering, we resampled whole villages from the cohort. We simulated treatment from a logit fitted to the real data, simulated outcomes from a fitted control-trend model plus a nonlinear asset–land interaction, a village effect and a known ATT of 0.25 years, and added classical error to log assets and log land at reliability 0.7. Each of 500 replicates resampled the cohort's `r tail(ex$app$flow$clusters, 1)` villages with replacement and assigned whole villages to five folds (Appendix \ref{app:computation}). The naive estimator is cross-fitted lasso DR-DiD on the reported covariates, and the same estimator on the true covariates uses the same folds.
+
+```{r semi-text, include=FALSE}
+bs <- function(me, ...) cv("bihs_semi", "bihs_semi_r0.70", "glmnet", me, ...)
+bp <- function(contrast, col = "est_diff") cp("bihs_semi", "bihs_semi_r0.70", contrast, arm = "fold", col = col)
+```
+
+The check supports the clustered variance calculation but says little about bias correction, because the error moved the estimate by much less than its sampling variability. Measurement error shifted the lasso DR-DiD estimate by `r nm(bp("naive - latent"))` years relative to the estimate on the true covariates (paired MCSE `r fmt(bp("naive - latent", "est_diff_mcse"))`). SIMEX with cross-fitted calibration moved it back by `r nm(bp("SIMEX - naive"))` (`r fmt(bp("SIMEX - naive", "est_diff_mcse"))`), ending `r fmt(-bp("SIMEX - latent"))` (`r fmt(bp("SIMEX - latent", "est_diff_mcse"))`) below the estimate on the true covariates. The shift due to error was `r fmt(abs(bp("naive - latent")) / bs("emp_sd"), 2)` of the empirical SD of the SIMEX estimate, `r fmt(bs("emp_sd"))` years, and the naive estimate had SD `r fmt(bs("naive_emp_sd"))`. Against the ATT of 0.25, the biases were `r nm(bs("naive_bias_att"))` (MCSE `r fmt(bs("naive_bias_att", col = "mcse"))`) for the naive estimator, `r nm(bs("oracle_bias_att"))` (`r fmt(bs("oracle_bias_att", col = "mcse"))`) on the true covariates and `r nm(bs("bias_att"))` (`r fmt(bs("bias_att", col = "mcse"))`) for SIMEX. Village-clustered intervals covered the ATT in `r fmt(bs("cover_att_point_M0"))` [`r fmt(bs("cover_att_point_M0", col = "wilson_lo"))`, `r fmt(bs("cover_att_point_M0", col = "wilson_hi"))`] of replicates for SIMEX and in `r fmt(bs("naive_cover_att"))` for the naive estimator. For SIMEX, the ratio of mean SE to empirical SD was `r fmt(bs("se_ratio"), 2)`, SEs that ignore the clustering gave coverage `r fmt(bs("cover_att_point_M0_iidse"))`, and the first-step adjustment accounted for `r fmt(100 * bs("calibration_var_share"), 2)`% of the variance. In the median replicate, no SIMEX fit clipped more than `r fmt(100 * bs("median_clip_frac"), 1)`% of propensities, and in the worst replicate one fit clipped `r fmt(100 * bs("max_clip_frac"), 1)`%. Regression calibration was not part of this study.

@@ -1,0 +1,92 @@
+# Treatment misclassification {#app:misclass}
+
+In this appendix $A$ is the true treatment, $B$ the reported treatment, and $D=\Delta Y$. All expectations are population quantities.
+
+## Identification and attenuation {#app:mc-ident}
+
+Under consistency, no anticipation and conditional parallel trends with respect to $A$, $E[D\mid A=0,X]=\mu(X)$ and $E[D\mid A=1,X]=\mu(X)+\theta(X)$, so $\tau=E[e\theta]/\pi$. Reporting is non-differential with known misclassification probabilities:
+$$
+P(B=1\mid A,X,Y_0(0),Y_1(0),Y_1(1))=\alpha_0(1-A)+(1-\alpha_1)A,\qquad\kappa_\alpha=1-\alpha_0-\alpha_1>0, \tag{D.1}
+$$
+with $\delta\le e(X)\le1-\delta$. For the mean identities, $E[B\mid A,X,D]=\alpha_0+\kappa_\alpha A$ suffices. Bayes' rule gives $p_B(X)=P(B=1\mid X)=\alpha_0+\kappa_\alpha e$, $P(A=1\mid B=1,X)=(1-\alpha_1)e/p_B$ and $P(A=1\mid B=0,X)=\alpha_1e/(1-p_B)$. Mixing the true-group means,
+$$
+m_b(X):=E[D\mid B=b,X]=\mu+\theta\,P(A=1\mid B=b,X),\qquad\theta^\circ(X):=m_1-m_0=\theta f, \tag{D.2}
+$$
+where
+$$
+f=\frac{\kappa_\alpha e(1-e)}{p_B(1-p_B)}.
+$$
+The factor $f$ is a difference of two posterior probabilities, so $0<f\le1$, with equality only under perfect classification. With $b_1=1-\alpha_1$, $e(p_B)=(p_B-\alpha_0)/\kappa_\alpha$ and $H(p_B)=e/f=p_B(1-p_B)/(b_1-p_B)$,
+$$
+\tau=\frac{E[\theta^\circ(X)H(p_B(X))]}{E[e(p_B(X))]}, \tag{D.3}
+$$
+which identifies the heterogeneous ATT without assuming a homogeneous effect.
+
+A consistent DR-DiD estimator that uses $B$ in place of $A$ converges to
+$$
+\tau^\circ=\frac{E[p_B\theta^\circ]}{E[p_B]}=E[\theta(X)\varpi(X)\mid A=1],\qquad \varpi=\frac{\pi\kappa_\alpha(1-e)}{\pi_B(1-p_B)},\quad\pi_B=\alpha_0+\kappa_\alpha\pi. \tag{D.4}
+$$
+Write $h(e)=\kappa_\alpha(1-e)/(1-\alpha_0-\kappa_\alpha e)$. Since $h'(e)=-\kappa_\alpha\alpha_1/(1-\alpha_0-\kappa_\alpha e)^2\le0$, we have $h\le\kappa_\alpha/(1-\alpha_0)\le1-\alpha_1\le\pi_B/\pi$, so $0<\varpi\le1$. Hence $0\le\tau^\circ\le\tau$ when $\theta\ge0$, and $\tau\le\tau^\circ\le0$ when $\theta\le0$. Homogeneity is sufficient for this ordering but not necessary. With effects of mixed sign the ordering can fail. Two equally likely covariate values with $e=(0.2,0.8)$, $\theta=(-2.8,0.8)$ and misclassification probabilities $(0.1,0.2)$ give $\tau=0.08$ but $\tau^\circ\approx-0.166$.
+
+```{r tau-r-numbers, include=FALSE}
+trs <- ex$followup$tau_r$scores; trp <- ex$followup$tau_r$population
+sci <- function(x) { e <- floor(log10(x)); sprintf("$%s\\times10^{%d}$", formatC(x / 10^e, format = "f", digits = 0), e) }
+trw <- trs[grepl("_R$", trs$estimator), ] |>
+  tidyr::pivot_wider(id_cols = c(cell_id, estimator), names_from = target, values_from = c(bias, coverage))
+tr_bias_chg <- max(abs(trw$`bias_realised tau_R` - trw$`bias_realised ATT`))
+tr_cov_chg <- max(abs(trw$`coverage_realised tau_R` - trw$`coverage_realised ATT`))
+```
+
+The alternative target $\tau_R=E[\theta fe]/E[fe]$ satisfies
+$$
+\tau_R-\tau=\frac{\mathrm{Cov}(\theta,f\mid A=1)}{E[f\mid A=1]}, \tag{D.5}
+$$
+so $\tau_R=\tau$ whenever the effect is uncorrelated with $f$ among the treated, which is the case in our simulation design because the effect modifiers are independent of the confounders. A design with effect heterogeneity correlated with $f$ is needed to separate the two targets. We did not run one. We did compute both targets for every replicate of the twelve misclassification cells, with $f$ evaluated at the true propensity and misclassification probabilities. On one draw of `r big(trp$n[1])` units per family, the population $\tau_R$ and $\tau$ differed by at most `r sci(max(abs(trp$diff)))` (delta-method SE at most `r sci(max(trp$diff_se))`). Per replicate, the sample $\tau_R=\sum_iA_i\theta_if_i/\sum_iA_if_i$ differed from the sample ATT by at most `r fmt(max(trs$gap_maxabs), 4)`. Scoring the R-form corrections against the sample $\tau_R$ instead of the sample ATT changed their bias by at most `r sci(tr_bias_chg)` and their coverage by at most `r fmt(tr_cov_chg)`, so Table \ref{tab:corrections} reports the ATT-based scores for both forms.
+
+## The orthogonal score and its remainders {#app:mc-score}
+
+For known smooth $\mathcal K$ and $\mathcal L$ let $N_{\mathcal K}=E[\theta^\circ\mathcal K(p_B)]$, $E_{\mathcal L}=E[\mathcal L(p_B)]$ and $\Psi=N_{\mathcal K}/E_{\mathcal L}$ (the ATT uses $\mathcal K=H$ and $\mathcal L=e$). Differentiating along a regular path gives the influence function $\psi_\Psi=(\phi_{\mathcal K}-\Psi\phi_{\mathcal L})/E_{\mathcal L}$ with
+$$
+\phi_{\mathcal K}=\theta^\circ\mathcal K+\mathcal K\Big\{\frac{B(D-m_1)}{p_B}-\frac{(1-B)(D-m_0)}{1-p_B}\Big\}+\theta^\circ\mathcal K'(B-p_B),\qquad\phi_{\mathcal L}=\mathcal L+\mathcal L'(B-p_B). \tag{D.6}
+$$
+At fitted values $(\bar m_1,\bar m_0,\tilde p)$ with $u_b=\bar m_b-m_b$ and $\varepsilon=\tilde p-p_B$, the exact ATT remainder is
+$$
+E[\phi_H]-N_H=E\Big[-\frac{\theta^\circ b_1\alpha_1\varepsilon^2}{(b_1-\tilde p)^2(b_1-p_B)}+\frac{\varepsilon\{-\alpha_1\tilde pu_1+b_1(1-\tilde p)u_0\}}{(b_1-\tilde p)^2}\Big],\qquad E[\phi_e]-E_e=0. \tag{D.7}
+$$
+Three consequences follow. A correct $p_B$ removes the remainder whatever the outcome means. Correct outcome means alone leave a quadratic propensity term when $\alpha_1>0$. When $\alpha_1=0$ the score does not depend on $m_1$, and a correct $m_0$ suffices.
+
+## Double robustness in the nuisances of the true treatment {#app:mc-latent}
+
+Define $\tilde A=(B-\alpha_0)/\kappa_\alpha$. It is a moment-correction variable, not a probability. Under (D.1), $E[\tilde A\mid A,X,D]=A$. For candidate latent nuisances $(g,m)$ with $g\le1-\delta_g$,
+$$
+T_{\tilde A}(g,m)=\frac1\pi E\Big[\frac{\tilde A-g}{1-g}(D-m)\Big],\qquad T_{\tilde A}(g,m)-\tau=\frac1\pi E\Big[\frac{(e-g)(\mu-m)}{1-g}\Big], \tag{D.8}
+$$
+because $E[(\tilde A-g)(D-m)\mid X]=e(1-g)\theta+(e-g)(\mu-m)$. The functional is therefore globally doubly robust in $(e,\mu)$. The score in (D.6) is this score in disguise. Inverting the observed means gives
+$$
+\mu=\frac{b_1(1-p_B)m_0-\alpha_1p_Bm_1}{b_1-p_B}, \tag{D.9}
+$$
+and for any fitted $(\tilde p,\bar m_0,\bar m_1)$ with $g=(\tilde p-\alpha_0)/\kappa_\alpha$ and $\bar\mu$ from (D.9), substitution yields $\phi_e=\tilde A$ and $\phi_H=\{(\tilde A-g)/(1-g)\}(D-\bar\mu)$. The implemented correction is globally doubly robust in the nuisances of the true treatment, $(e,\mu)$. A wrong $\tilde p$ still distorts $\bar\mu$ through (D.9), which is why (D.7) is only locally orthogonal in the observed parametrisation.
+
+Under i.i.d. sampling, fixed $\kappa_\alpha$, propensities bounded away from 0 and 1, $E[D^2]<\infty$, and cross-fitted latent nuisances with $\|\hat g-e\|_2\|\hat m-\mu\|_2=o_p(n^{-1/2})$, the estimator $\hat\tau_{\tilde A}=P_n\hat\ell/P_n\tilde A$ with $\ell=(\tilde A-g)(D-m)/(1-g)$ satisfies $\hat\tau_{\tilde A}-\tau=P_n\psi_\tau+o_p(n^{-1/2})$, where
+$$
+\psi_\tau=\frac{(\tilde A-e)(D-\mu)/(1-e)-\tau\tilde A}{\pi}. \tag{D.10}
+$$
+The proof follows Appendix \ref{app:crossfit}, using (D.8) for the drift and the bounded weight difference $(\tilde A-1)(g-e)/\{(1-g)(1-e)\}$ for the empirical-process term.
+
+## Misclassification probabilities estimated from validation data {#app:mc-validation}
+
+If $\alpha$ is estimated from an independent validation sample of size $M_v$ with true-treatment prevalence $\pi_v$, their estimators have influence functions $\nu_0=(1-A)(B-\alpha_0)/(1-\pi_v)$ and $\nu_1=A\{(1-B)-\alpha_1\}/\pi_v$, with covariance $\Sigma_\nu=\mathrm{diag}\{\alpha_0(1-\alpha_0)/(1-\pi_v),\alpha_1(1-\alpha_1)/\pi_v\}$. Holding the observed law fixed, the ATT has derivatives in the misclassification probabilities
+$$
+\Gamma_0=\frac{\tau(1-\pi)}{\kappa_\alpha\pi},\qquad\Gamma_1=\frac{E[\theta e^2/(1-e)]}{\kappa_\alpha\pi}, \tag{D.11}
+$$
+both non-negative when conditional effects are non-negative. Conditional on the validation sample, the analysis-sample expansion holds at the estimated probabilities. Smoothness then gives
+$$
+\hat\tau(\hat\alpha)-\tau=P_n\psi_\tau+\frac1{M_v}\sum_j\Gamma^\top\nu(O^{\mathrm v}_j)+o_p(n^{-1/2}+M_v^{-1/2}),\qquad\mathrm{AVar}=\frac{\mathrm{Var}(\psi_\tau)}{n}+\frac{\Gamma^\top\Sigma_\nu\Gamma}{M_v}. \tag{D.12}
+$$
+Orthogonality removes first-order nuisance effects, not the first-order effect of an estimated measurement model. An internal validation subsample adds the covariance $2\mathrm{Cov}(\psi_\tau,\Gamma^\top\nu^{\mathrm{int}})$ and requires a uniform expansion in the probabilities, which we have not proved for the learners used here.
+
+## Differential reporting and weak classification {#app:mc-differential}
+
+If $E[B\mid A,X,D]=\alpha_0+\kappa_\alpha A+d(A,X,D)$, then $E[\tilde AD\mid X]=E[AD\mid X]+E[dD\mid X]/\kappa_\alpha$. The covariance $E[dD\mid X]$ can be non-zero even when the marginal rates are correct. Then (D.8) fails, and no choice of learner repairs it. This is the setting of \citet{negi2025misclassified}, who use a one-sided differential model with an exclusion restriction. When $\kappa_\alpha$ is small, $\tilde A$ is large in magnitude and both sampling and calibration variance grow, as (D.10) and (D.11) show. The fixed-$\kappa_\alpha$ theory is not uniform as $\kappa_\alpha\to0$.
+
+The finite-support identities, the remainder (D.7), the identity (D.8), the mixed-sign example and the derivatives (D.11) are verified numerically (Appendix \ref{app:repro}).

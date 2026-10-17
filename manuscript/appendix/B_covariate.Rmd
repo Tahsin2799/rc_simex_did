@@ -1,0 +1,137 @@
+# Covariate measurement error: bias and identification {#app:covariate}
+
+*Notation.* $X=(W,V)$ holds the latent covariates, $W$ error-prone and $V$ exact. The observed covariates are $Z=(W^*,V)$, with $W^*=W+U$. The target $\tau$ is the ATT identified by Assumptions \ref{ass:cpt}–\ref{ass:overlap} at the latent covariates. All variables take values in Euclidean spaces, so regular conditional distributions exist, and conditional equalities hold almost surely.
+
+## The bias of adjusting for the observed covariates {#app:bias}
+
+Write $D=\mu(X)+A\theta(X)+\eta$ with $E[\eta\mid X,A]=0$ (Appendix \ref{app:ident}). Assume
+$$
+E[\eta\mid X,A,U]=0, \tag{B.1}
+$$
+which is implied by $U\perp D\mid(X,A)$ but weaker. Because $Z$ is a function of $(X,U)$, $E[\eta\mid Z,A]=E\{E[\eta\mid X,U,A]\mid Z,A\}=0$, so
+$$
+m_0^*(Z)=E[\mu(X)\mid Z,A=0],\qquad m_1^*(Z)=E[\mu(X)\mid Z,A=1]+E[\theta(X)\mid Z,A=1].
+$$
+Averaging the difference over the treated gives $\tau^*:=E[m_1^*(Z)-m_0^*(Z)\mid A=1]=\tau+b$ with
+$$
+b=E\big\{E[\mu(X)\mid Z,A=1]-E[\mu(X)\mid Z,A=0]\,\big|\,A=1\big\}, \tag{B.2}
+$$
+using the tower identity $E\{E[\theta(X)\mid Z,A=1]\mid A=1\}=\tau$. Applying (A.2) at the observed law,
+$$
+T_{P^*}(g,m)-\tau=b+E[(w^{e^*}-w^g)(m_0^*-m)], \tag{B.3}
+$$
+with $e^*(Z)=P(A=1\mid Z)$. Correct nuisance estimation removes the second term, not $b$. Double robustness protects against misspecified nuisance models at the conditioning variables used, not against conditioning on the wrong variables.
+
+Sufficient conditions for $b=0$ are $U=0$, $\mu(W,V)=\mu_V(V)$, or $A\perp W\mid Z$. None is necessary, because positive and negative conditional imbalances can cancel. Dependence of both treatment and trend on $W$ does not by itself imply $b\neq0$.
+
+Under $U\perp A\mid X$, $e^*(Z)=E[e(X)\mid Z]$, so latent overlap $e\le1-\delta$ implies observed overlap. Under (B.1) alone, reporting error that is differential with respect to treatment is allowed, and observed overlap is a separate assumption.
+
+## Continuity as the error vanishes {#app:continuity}
+
+Let $Z_n=(W+U_n,V)$ with $U_n\to0$ in probability, (B.1) for every $n$, $E|\mu(X)|<\infty$, and $e^*_n(Z_n)\le1-\delta$ for a fixed $\delta>0$. For a bounded continuous $h$ put $d_n=|\mu(X)-h(Z_n)|$ and $r_{a,n}(z)=E[\mu(X)-h(Z_n)\mid Z_n=z,A=a]$. The $h(Z_n)$ terms cancel between groups, so $|b_n|\le E[|r_{1,n}(Z_n)|\mid A=1]+E[|r_{0,n}(Z_n)|\mid A=1]$. Jensen's inequality bounds the first term by $E[Ad_n]/\pi$. For the second, the change of measure $E[k(Z_n)\mid A=1]=\pi^{-1}E[(1-A)e^*_n/(1-e^*_n)\,k(Z_n)]$ and conditional Jensen give
+$$
+|b_n|\le C_\delta E|\mu(X)-h(Z_n)|,\qquad C_\delta=\max\{1,(1-\delta)/\delta\}/\pi. \tag{B.4}
+$$
+For $\varepsilon>0$, choose bounded continuous $h$ with $E|\mu(X)-h(X)|<\varepsilon$, which exists because such functions are dense in $L^1$. Then $E|\mu(X)-h(Z_n)|\le\varepsilon+E|h(X)-h(Z_n)|$, and the last term tends to zero by bounded convergence. Hence $b_n\to0$. If $\mu$ is $L$-Lipschitz in $W$, (B.4) with $h=\mu$ gives $|b_n|\le C_\delta LE\|U_n\|$.
+
+## A continuity lemma for the ATT functional {#app:tvlemma}
+
+\begin{lemma}\label{lem:tv}
+For a law $P$ of $(D,A,Z)$ let $\mathcal T(P)=\pi^{-1}E_P[AD]-\pi^{-1}\int m_{0,P}(z)P(A=1,dz)$ with $m_{0,P}(z)=E_P[D\mid A=0,Z=z]$. Let $P_n,P$ share the $(D,A)$ marginal, with $\pi>0$, $E|D|<\infty$, and $P_n(A=1\mid Z)\le1-\delta$ for all $n$ and in the limit. If $\|P_n-P\|_{\mathrm{TV}}\to0$, then $\mathcal T(P_n)\to\mathcal T(P)$.
+\end{lemma}
+
+*Proof.* First let $|D|\le M_D$. Take densities with respect to a common dominating measure, $a_P$ and $b_P$ for $P(A=1,dz)$ and $P(A=0,dz)$, and the signed density $t_P$ of $E_P[D1\{A=0,Z\in dz\}]$. Put $m_P=t_P/b_P$ where $b_P>0$. Then $|m_P|\le M_D$ and $a_P\le Cb_P$ with $C=(1-\delta)/\delta$, and
+$$
+\Big|\int a_Pm_P-\int a_Qm_Q\Big|\le M_D\int|a_P-a_Q|+C\int|t_P-t_Q|+CM_D\int|b_P-b_Q|,
+$$
+using $b_Qm_P-t_Q=(t_P-t_Q)+(b_Q-b_P)m_P$. Each density difference tends to zero in $L^1$ under total-variation convergence. For integrable $D$, truncate at $\pm M_D$. Because the $D$ marginal is fixed, the truncation error is at most $\max(1,C)E|D-D_{M_D}|/\pi$ uniformly in $n$. Then let $M_D\to\infty$. $\square$
+
+For independent Gaussian error $U_\Sigma\sim N(0,\Sigma)$, the total-variation distance between the laws induced by $\Sigma_n$ and $\Sigma$ is at most $\|N(0,\Sigma_n)-N(0,\Sigma)\|_{\mathrm{TV}}$, since adding independent noise and projecting is a Markov kernel. For positive definite $\Sigma_n\to\Sigma$ this tends to zero by Scheffé's lemma, so $\Sigma\mapsto\tau^*(\Sigma)$ is continuous. No density of $W$ is required.
+
+## The large-noise limit {#app:largenoise}
+
+Let $U_\nu=\nu S^{1/2}G$ with $G\sim N(0,I)$, $S$ positive definite and $\nu\to\infty$. Conditioning on $W+U_\nu$ is equivalent to conditioning on $R_\nu=\nu^{-1}S^{-1/2}W+G$. Given $H=(D,A,W,V)$, $R_\nu\sim N(\nu^{-1}S^{-1/2}W,I)$, so $\|P_{H,R_\nu}-P_H\otimes N(0,I)\|_{\mathrm{TV}}\le E\|N(\nu^{-1}S^{-1/2}W,I)-N(0,I)\|_{\mathrm{TV}}\to0$ by dominated convergence. Lemma \ref{lem:tv} applied to $(D,A,V,R_\nu)$ gives
+$$
+b_\nu\to E\big\{E[\mu(W,V)\mid V,A=1]-E[\mu(W,V)\mid V,A=0]\,\big|\,A=1\big\}, \tag{B.5}
+$$
+the bias of adjusting for $V$ alone. If only some noise directions diverge, only those directions are lost.
+
+## A Gaussian–probit example {#app:gaussian}
+
+Assume $W\mid V\sim N(m(V),\Sigma_W)$, $U\sim N(0,\Sigma_U)$ independent of $(W,V,A,D)$, $\mu(W,V)=\delta_W^\top W+\delta_V^\top V$, and $A=1\{\kappa_0+\kappa_W^\top W+\kappa_V^\top V+\xi>0\}$ with $\xi\sim N(0,1)$ independent of $(W,V,U)$. Then $\bar W(Z)=E[W\mid Z]=m(V)+\Lambda\{W^*-m(V)\}$ with $\Lambda=\Sigma_W(\Sigma_W+\Sigma_U)^{-1}$, and the residual $E_W=W-\bar W(Z)\sim N(0,\Omega)$, $\Omega=(I-\Lambda)\Sigma_W$, is independent of $Z$. Write $\ell(Z)=\kappa_0+\kappa_W^\top\bar W(Z)+\kappa_V^\top V$ and $T=\kappa_W^\top E_W+\xi\sim N(0,\varsigma^2)$ with $\varsigma^2=1+\kappa_W^\top\Omega\kappa_W$. Then $A=1\{T>-\ell(Z)\}$ and $E[E_W\mid T]=\Omega\kappa_WT/\varsigma^2$. With $a=\ell/\varsigma$, the truncated-normal means $E[T\mid T>-\ell]=\varsigma\varphi(a)/\Phi(a)$ and $E[T\mid T\le-\ell]=-\varsigma\varphi(a)/\{1-\Phi(a)\}$ give
+$$
+E[W\mid Z,A=1]-E[W\mid Z,A=0]=\frac{\Omega\kappa_W\varphi(a)}{\varsigma\Phi(a)\{1-\Phi(a)\}},
+$$
+and therefore
+$$
+b=\delta_W^\top\Omega\kappa_W\,\mathcal M,\qquad\mathcal M=E\Big[\frac{\varphi(\ell/\varsigma)}{\varsigma\Phi(\ell/\varsigma)\{1-\Phi(\ell/\varsigma)\}}\,\Big|\,A=1\Big], \tag{B.6}
+$$
+whenever $\mathcal M$ is finite. In one dimension $\Omega=\sigma_W^2(1-r)$ with reliability $r=\sigma_W^2/(\sigma_W^2+\sigma_U^2)$, so for $0<r<1$ the bias has the sign of $\delta_W\kappa_W$. With several error-prone covariates the sign of $\delta_W^\top\Omega\kappa_W$ is not determined by the signs of the coefficients, and cancellation is possible. Unbounded probit selection does not satisfy the uniform overlap used elsewhere, so this example illustrates the bias but does not verify the conditions of the inference results.
+
+## The identified set under an unknown error scale {#app:idset}
+
+This section characterises what the observed law identifies about $\tau$ when the error covariance is known only up to scale. It is a population result. The estimator of Section \ref{sec:method} does not estimate this set (Remark \ref{rem:notsharp}).
+
+*Model.* Let $P^*$ be the observed law of $(W^*,H)$, $H=(D,A,V)$. The baseline outcome is included in $H$ if the error is assumed independent of the full panel. Fix a positive definite matrix $S$, the error covariance up to scale, and $\delta>0$. The model allows
+$$
+W^*=W+U,\quad U\sim N(0,\rho S),\quad U\perp(W,H),\quad\rho\in[0,1],\qquad P_\rho(A=1\mid W,V)\le1-\delta, \tag{B.7}
+$$
+together with Assumptions \ref{ass:cpt}–\ref{ass:noanticipation}. For the common-reliability parametrisation $S=\mathrm{diag}\{(1-r_L)\mathrm{Var}(W^*_j)\}$, reliability is $r=1-\rho(1-r_L)$. Let $\phi^*(t,s)=E\exp\{i(t^\top W^*+s^\top H)\}$ and
+$$
+\phi_\rho(t,s)=\phi^*(t,s)\exp\{\tfrac12\rho t^\top St\}. \tag{B.8}
+$$
+Let $\mathcal R_\delta$ be the set of $\rho\in[0,1]$ for which (B.8) is a characteristic function of a law $P_\rho$ satisfying the overlap bound.
+
+*Necessity and measurement compatibility.* Independence in (B.7) gives $\phi^*=\phi_{W,H}e^{-\rho t^\top St/2}$, so every admissible latent law has characteristic function (B.8). The Gaussian factor never vanishes, so this latent law is unique. Conversely, if (B.8) is a characteristic function, drawing $(W,H)\sim P_\rho$ and an independent $U\sim N(0,\rho S)$ reproduces $P^*$ exactly, jointly in treatment, outcome and exact covariates. Deconvolving the marginal of $W^*$ alone does not guarantee this.
+
+*The feasible set is an interval.* If $\rho\in\mathcal R_\delta$ and $0\le\rho'\le\rho$, adding independent $N(0,(\rho-\rho')S)$ noise to $W$ produces a law with characteristic function $\phi_{\rho'}$, and $P(A=1\mid\widetilde W,V)=E[P_\rho(A=1\mid W,V)\mid\widetilde W,V]\le1-\delta$. So $\mathcal R_\delta$ is downward closed. It is also closed. If $\rho_n\to\rho$ within $\mathcal R_\delta$, the characteristic functions converge pointwise to a function continuous at the origin, Lévy's continuity theorem gives weak convergence, and the overlap inequalities $\int f1\{A=1\}dP_{\rho_n}\le(1-\delta)\int f\,dP_{\rho_n}$, for bounded continuous $f\ge0$, pass to the limit. Hence, when the model is non-empty, $\mathcal R_\delta=[0,\bar\rho]$ for some $\bar\rho\in[0,1]$.
+
+*Causal completion and sharpness.* For feasible $\rho$, define
+$$
+\tau_\rho=E_\rho\big\{E_\rho[D\mid W,V,A=1]-E_\rho[D\mid W,V,A=0]\,\big|\,A=1\big\}. \tag{B.9}
+$$
+Necessity follows from Assumption \ref{ass:cpt}. For sufficiency, with $m_{0,\rho}(W,V)=E_\rho[D\mid W,V,A=0]$, set $D(0)=D$ for controls and $D(0)=m_{0,\rho}(W,V)$ for treated units, and $D(1)=D$ for treated units and $D(0)$ otherwise. With a common baseline, $Y^{a,0}=Y_0$ and $Y^{a,1}=Y_0+D(a)$. Consistency, no anticipation and conditional parallel trends hold, independent error preserves (B.7), and the ATT equals $\tau_\rho$. Hence
+$$
+\Theta(P^*)=\{\tau_\rho:\rho\in[0,\bar\rho]\}. \tag{B.10}
+$$
+Continuity of $\rho\mapsto\tau_\rho$ on $[0,\bar\rho)$ follows from Lemma \ref{lem:tv}, and at $\bar\rho$ from Appendix \ref{app:continuity} applied to $P_{\bar\rho}$, whose control trend is integrable because $E_{\bar\rho}|m_{0,\bar\rho}|\le\delta^{-1}E[(1-A)|D|]$. Therefore $\Theta(P^*)=[\min_\rho\tau_\rho,\max_\rho\tau_\rho]$ is an attained interval. This sharpness concerns the unrestricted model, and extra restrictions on potential outcomes change it.
+
+*Connection to SIMEX.* Convolving $P^*$ with $N(0,\lambda S)$ identifies $q(\lambda)=\mathcal T(P^**N_{\lambda S})$ for $\lambda\ge0$, and $q(-\rho)=\tau_\rho$ on the feasible negative domain $[-\bar\rho,0]$, which may be shorter than $[-1,0]$. Only an additional restriction on the shape of $q$, such as exact quadraticity on $[-\bar\rho,\lambda_J]$, lets the positive-noise curve determine (B.10).
+
+\begin{remark}[The SIMEX range is not the identified set]\label{rem:notsharp}
+The range of a fitted quadratic over $[-1,0]$ coincides with (B.10) only if $\bar\rho=1$ and $q$ is exactly quadratic on $[-1,\lambda_J]$. Neither follows from Gaussian error or from a reliability lower bound. Estimating $\bar\rho$ is a deconvolution problem without a root-$n$ theory here. Section \ref{sec:method} therefore uses bias-aware intervals that contain $\tau$ under a derivative bound, without claiming sharpness.
+\end{remark}
+
+## Binary outcomes {#app:binary}
+
+For a binary schooling outcome, let $H=(Y_0,Y_1,A,V)$ in (B.7)–(B.8), so that the error is independent of the full observed panel. For each compatible candidate define $\mu_\rho(x)=E_\rho[Y_1-Y_0\mid X=x,A=0]$, $b_{1,\rho}(x)=E_\rho[Y_0\mid X=x,A=1]$ and $p_\rho=\mu_\rho+b_{1,\rho}$. A completion with binary potential outcomes at both times that satisfies Assumptions \ref{ass:cpt}–\ref{ass:noanticipation} and preserves the candidate observed law exists if and only if
+$$
+0\le p_\rho(X)\le1\qquad P_\rho(\cdot\mid A=1)\text{-a.s.} \tag{B.11}
+$$
+*Necessity.* Conditional parallel trends gives $E_\rho[Y^{0,1}\mid X,A=1]=p_\rho$, which is the mean of a binary variable. *Sufficiency.* For treated units draw $B\sim\mathrm{Bernoulli}(p_\rho(X))$ independently of the observed outcomes, set $Y^{0,0}=Y^{1,0}=Y_0$, $Y^{0,1}=Y_1$ for controls and $B$ for treated units, and $Y^{1,1}=Y_1$ for treated units (and 0 otherwise). Every potential outcome is binary, the observed outcomes are preserved, conditional parallel trends holds, and the ATT equals $E_\rho[Y_1-Y_0-\mu_\rho(X)\mid A=1]=\tau_\rho$. Hence the sharp set is $\Theta_{\mathrm{bin}}=\{\tau_\rho:\rho\in\mathcal R_\delta,\ \text{(B.11) holds}\}$.
+
+Binary support breaks downward closure. Let $P(W=\pm1)=1/2$, $P(A=1\mid W)=(0.1,0.9)$, control means $E[Y_0\mid W,A=0]=(0,0.1)$ and $E[Y_1\mid W,A=0]=(0.8,0)$, treated means $E[Y_0\mid W,A=1]=(0.1,0.9)$ and $E[Y_1\mid W,A=1]=(0.9,0.8)$, with outcomes conditionally independent given $(W,A)$, and zero treatment effects. Observe $W^*=W+G$ with $G\sim N(0,1)$ and $S=1$. Then $\rho=1$ satisfies (B.11), with $p_1=(0.9,0.8)$. Treating $W^*$ as error-free ($\rho=0$), however, at $W^*=0$ Bayes' rule gives control weights $(0.9,0.1)$ and treated weights $(0.1,0.9)$ on $W=(-1,1)$. The control trend is $0.9(0.8)+0.1(-0.1)=0.71$, the treated baseline mean is $0.82$, and $p_0(0)=1.53>1$, which by continuity persists on a neighbourhood of positive probability. So $1\in\mathcal R_{\mathrm{bin}}$ but $0\notin\mathcal R_{\mathrm{bin}}$. For a binary outcome, the interval between the extreme values of $\tau_\rho$ only contains the sharp set.
+
+## Observable upper bounds on the error scale {#app:certificate}
+
+Under (B.7) with $E\|W^*\|^2<\infty$, for any square-integrable functions $B(H)$ of accurately observed variables and any matrix $L$,
+$$
+\mathrm{Var}(W^*-LB(H))=\mathrm{Var}(W-LB(H))+\rho S\succeq\rho S, \tag{B.12}
+$$
+because $U$ is independent of $(W,H)$. Minimising over $L$ gives
+$$
+R_B=\mathrm{Var}(W^*)-\mathrm{Cov}(W^*,B)\,\mathrm{Var}(B)^{\dagger}\,\mathrm{Cov}(B,W^*)\succeq\rho S.
+$$
+Conditionally, $\mathrm{Var}(W^*\mid H)=\mathrm{Var}(W\mid H)+\rho S$. These yield the observable upper bounds
+$$
+\rho\le\lambda_{\min}(S^{-1/2}R_BS^{-1/2}),\qquad\rho\le\operatorname*{ess\,inf}_h\lambda_{\min}\{S^{-1/2}\mathrm{Var}(W^*\mid H=h)S^{-1/2}\}. \tag{B.13}
+$$
+They are necessary, not sufficient, conditions. Marginal deconvolution alone is too permissive. If $W^*\sim N(0,1)$ and $D=W^*$, then (B.12) with $B=D$ forces $\rho S=0$, while the marginal of $W^*$ permits any error variance below one. At variance 0.2 the implied latent covariance of $(W,D)$ is $\left(\begin{smallmatrix}0.8&1\\1&1\end{smallmatrix}\right)$, with determinant $-0.2$.
+
+## The derivative of the target along the noise path {#app:noiseflow}
+
+Let $W_\lambda=W+\sqrt\lambda S^{1/2}G$ with $G$ independent standard Gaussian. In this section the noise level is measured from the true covariates, so $\lambda$ here corresponds to $1+\lambda$ in the notation of Section \ref{sec:error}, where $q(-1)$ is the value on the true covariates. Derivatives in $\lambda$ are the same in both notations. Let $f_{a,\lambda}(w,v)$ be the subdensity of $(W_\lambda,V,A=a)$, let $h_\lambda=(\mu f_{0,0})*\varphi_{\lambda S}$, let $m_\lambda=h_\lambda/f_{0,\lambda}$, let $e_\lambda=f_{1,\lambda}/(f_{0,\lambda}+f_{1,\lambda})$, and let $\mathcal A=\frac12\mathrm{tr}(S\nabla_w^2)$, so that $\partial_\lambda f_{a,\lambda}=\mathcal Af_{a,\lambda}$ and $\partial_\lambda h_\lambda=\mathcal Ah_\lambda$. Assume the subdensities are twice continuously differentiable in $w$ and positive where used, that $f_{1,\lambda}|\mathcal Am_\lambda|$, $|m_\lambda\mathcal Af_{1,\lambda}|$ and $f_{1,\lambda}|\nabla m_\lambda^\top S\nabla\log f_{a,\lambda}|$ are locally dominated by an integrable function, and that boundary terms vanish in the integrations by parts. Then $\partial_\lambda m_\lambda=\mathcal Am_\lambda+\nabla m_\lambda^\top S\nabla\log f_{0,\lambda}$. With $q(\lambda)=E[D\mid A=1]-\pi^{-1}\int f_{1,\lambda}m_\lambda$, self-adjointness of $\mathcal A$ and $2\mathcal A=\mathrm{div}(S\nabla)$ give
+$$
+q'(\lambda)=E\big[\nabla_wm_\lambda(W_\lambda,V)^\top S\,\nabla_w\,\mathrm{logit}\,e_\lambda(W_\lambda,V)\,\big|\,A=1\big]. \tag{B.14}
+$$
+When the regularity extends to $\lambda=0$, $q(\lambda)-q(0)=\lambda E[\nabla_w\mu(X)^\top S\nabla_w\mathrm{logit}\,e(X)\mid A=1]+o(\lambda)$. For a linear trend and a logistic latent propensity the coefficient is $\delta_W^\top S\kappa_W$. The scalar ATT version of this local expansion is Proposition 2 of \citet{battistin2014treatment}. Our contribution here is the exact derivative (B.14) along the whole noise path, which gives $q(\lambda_2)-q(\lambda_1)=\int_{\lambda_1}^{\lambda_2}q'$ and monotonicity wherever the two gradients are aligned. Gaussian-convolution quadrature in one dimension confirms (B.14) to within $2\times10^{-9}$ (Appendix \ref{app:repro}).

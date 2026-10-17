@@ -1,0 +1,281 @@
+# Additional simulation results {#app:results}
+
+## Design and selected results of the original study {#app:orig}
+
+*Aims.* The study measures how outcome error, covariate error and treatment misclassification change the bias, variance and coverage of twelve DiD estimators, and whether three corrections recover the ATT.
+
+*Data-generating mechanisms.* Twenty covariates have moments calibrated to BIHS round 1. Five continuous confounders receive error. The propensity is logit-linear in the raw covariates, and untreated trends depend on the covariates, so unconditional parallel trends fails while conditional parallel trends holds. A "linear" family has a constant effect $\theta=0.2$. A "nonlinear" family adds a nonlinear trend surface and effect heterogeneity in five modifiers that are independent of treatment. Sixteen measurement designs are crossed with the two families and $n\in\{1000,5000\}$, giving 64 cells with 500 replicates each (Appendix \ref{app:computation}). The designs are the baseline without error, classical covariate error at reliability 0.9, 0.75 and 0.6, covariate error that is differential with respect to treatment, three levels of misclassification, and four kinds of outcome error (covariate-dependent, classical, differential and mean-reverting).
+
+*Estimators.*
+
+- Covariate-blind DiD.
+- Parametric IPW-DiD \citep{abadie2005semiparametric} and improved DR-DiD \citep{santanna2020doubly}.
+- IPW-DiD with random-forest and boosting propensities.
+- Cross-fitted DR-DiD with the lasso (two dictionaries), a random forest and boosting.
+- The causal forest, the Bayesian causal forest and full matching.
+- In the relevant cells, SIMEX-lasso and SIMEX-boosting with known reliability, their reliability-range versions, and the corrections with known misclassification probabilities.
+
+*Performance measures.* We report bias against the sample ATT with its MCSE, the empirical SE, the RMSE, coverage with Wilson intervals, and interval width. We also report bias against the population ATT, which is `r fmt(ex$prod$pop_att[["nonlinear"]], 4)` in the nonlinear family (Appendix \ref{app:targets}). Of `r big(ex$prod$status[["rows"]])` estimator runs, `r big(ex$prod$status[["ok"]])` ended without a fallback. In `r big(ex$prod$status[["flagged"]])` runs of the parametric improved DR-DiD, its solver fell back to standard DR-DiD. This happened in `r with(ex$prod$flags[ex$prod$flags$status == "ipt_fallback" & grepl("N1000$", ex$prod$flags$cell_id), ], paste0(fmt(100 * min(rate), 1), "--", fmt(100 * max(rate), 1)))`% of the replicates of each cell with $n=1{,}000$ and in `r sum(ex$prod$flags$n[ex$prod$flags$status == "ipt_fallback" & grepl("N5000$", ex$prod$flags$cell_id)])` replicate with $n=5{,}000$. These replicates are excluded from the primary metrics. Full matching failed in `r sum(ex$prod$flags$n[ex$prod$flags$status == "error"])` run.
+
+```{r headline}
+hl <- ex$prod$headline |>
+  mutate(Design = recode(sub("__nonlinear__N5000", "", cell_id),
+                         "baseline__none" = "No measurement error", "x_classical__r0.60" = "Classical covariate error, $r=0.6$",
+                         "treat_misclass__large" = "Misclassification (0.10, 0.20)", "x_nc__large" = "Differential covariate error, large"),
+         Estimator = recode(estimator, drdid_imp = "Improved DR-DiD (parametric)", dml_lasso = "Lasso DR-DiD",
+                            dml_xgb = "Boosted DR-DiD", cf_did = "Causal forest", simex_lasso = "SIMEX-lasso",
+                            simex_xgb = "SIMEX-boosting", misclass_lasso = "Known-probability correction, lasso",
+                            misclass_xgb = "Known-probability correction, boosting"),
+         Coverage = sprintf("%s [%s, %s]", fmt(coverage), fmt(cov_wilson_lo), fmt(cov_wilson_hi)),
+         Bias = sprintf("%s (%s)", fmt(bias, 4), fmt(bias_mcse, 4)), RMSE = fmt(rmse, 4)) |>
+  arrange(match(Design, c("No measurement error", "Classical covariate error, $r=0.6$", "Misclassification (0.10, 0.20)",
+                          "Differential covariate error, large"))) |>
+  select(Design, Estimator, Bias, RMSE, Coverage)
+kbl2(hl, font = 7.5, escape = FALSE, "Selected results of the original study, nonlinear family, $n=5{,}000$, 500 replicates per cell. Bias is against the sample ATT, with MCSE in parentheses. Coverage is of nominal 95\\% intervals, with Wilson 95\\% intervals in brackets.") |>
+  collapse_rows(1, latex_hline = "major", valign = "top")
+```
+
+*Results.* Table \ref{tab:headline} shows four designs. Without error, the parametric improved DR-DiD and lasso DR-DiD were nearly unbiased with close to nominal coverage. Boosting and the causal forest carried learner bias of `r v("baseline__none__nonlinear__N5000","dml_xgb")` and `r v("baseline__none__nonlinear__N5000","cf_did")`. Parametric methods were competitive because the propensity is logit-linear by construction in both families, so the design does not show that parametric methods beat machine learning in general.
+
+Under large misclassification, lasso DR-DiD on the reported treatment had bias `r v("treat_misclass__large__nonlinear__N5000","dml_lasso")` and coverage `r v("treat_misclass__large__nonlinear__N5000","dml_lasso","coverage")`. The lasso correction with known misclassification probabilities reduced the bias to `r v("treat_misclass__large__nonlinear__N5000","misclass_lasso")`, with coverage `r v("treat_misclass__large__nonlinear__N5000","misclass_lasso","coverage")`. Outcome error with conditional mean zero left all consistent estimators on target, as Section \ref{sec:error} predicts, and mean-reverting outcome error scaled every estimate (Table \ref{tab:fullbias}).
+
+## Full tables of the original study {#app:origtables}
+
+The tables below use the replicates in which the improved DR-DiD solver did not fall back to standard DR-DiD. Bias is against the sample ATT, with MCSE $\mathrm{sd}(\hat\tau-\tau_n)/\sqrt R$ over $R$ replicates.
+
+\setlength{\tabcolsep}{2.5pt}
+
+```{r fullbias}
+abbr <- c(did_ols = "Unadj.", did_ipw = "IPW", drdid_imp = "DR-imp", did_ps_rf = "IPW-RF", did_ps_xgb = "IPW-Boost",
+          dml_lasso = "Lasso", dml_lasso_int = "Lasso-I", dml_rf = "RF", dml_xgb = "Boost", cf_did = "CF",
+          bcf_did = "BCF", match_full = "Match")
+abbr_note <- paste("Unadj. is covariate-blind DiD, IPW is IPW-DiD and DR-imp is the parametric improved DR-DiD.",
+                   "IPW-RF and IPW-Boost are IPW-DiD with random-forest and boosting propensities. Lasso, Lasso-I, RF and",
+                   "Boost are cross-fitted DR-DiD with the lasso, the lasso with interactions, a random forest and boosting.",
+                   "CF is the causal forest, BCF the Bayesian causal forest and Match full matching.")
+wide <- function(col, digits = 3) {
+  w <- m |> filter(estimator %in% names(abbr)) |>
+    mutate(est = factor(abbr[estimator], levels = abbr), val = fmt(.data[[col]], digits)) |>
+    select(cell_id, est, val) |> pivot_wider(names_from = est, values_from = val, names_sort = TRUE)
+  w[order(cell_key(w$cell_id)), ]
+}
+by_design <- function(w, cap) {           # one group per measurement design, rows = magnitude, trend, n
+  r <- rle(cell_parts(w$cell_id)$design)
+  out <- w |> mutate(Cell = cell_short(cell_id)) |> select(Cell, everything(), -cell_id)
+  kbl_long(out, cap, font = 6) |> pack_rows(index = setNames(r$lengths, DESIGN_LAB[r$values])) |> keep_groups()
+}
+by_design(wide("bias"), paste("Bias of the twelve base estimators in all 64 cells of the original study, grouped by measurement design,",
+                               "on replicates without a solver fallback. Rows give the reliability $r$ or the error magnitude,",
+                               "the trend family and $n$.", abbr_note))
+```
+
+```{r fullcov}
+by_design(wide("coverage"), paste("Coverage of nominal 95\\% intervals for the twelve base estimators, on replicates without a solver fallback.",
+                                   "Values near 0.95 have MCSE of about 0.01. Columns as in Table \\ref{tab:fullbias}."))
+```
+
+\setlength{\tabcolsep}{6pt}
+
+```{r corrections}
+by_cell <- function(d, cap) {   # one italic heading row per cell; each cell kept on one page
+  r <- rle(d$Cell)
+  kbl_long(d[setdiff(names(d), "Cell")], cap) |>
+    pack_rows(index = setNames(r$lengths, r$values), escape = FALSE, bold = FALSE, italic = TRUE,
+              latex_gap_space = "0.5em") |> keep_groups()
+}
+c_ord <- c("simex_lasso", "simex_xgb", "misclass_lasso", "misclass_lasso_R", "misclass_xgb", "misclass_xgb_R")
+corr <- m |> filter(estimator %in% c_ord) |> arrange(cell_key(cell_id), match(estimator, c_ord)) |>
+  transmute(Cell = cell_full(cell_id), Estimator = EST_LAB[estimator],
+            Bias = sprintf("%s (%s)", fmt(bias, 4), fmt(bias_mcse, 4)), RMSE = fmt(rmse, 4),
+            Coverage = sprintf("%s [%s, %s]", fmt(coverage), fmt(cov_wilson_lo), fmt(cov_wilson_hi)),
+            Width = fmt(ci_width), Flags = n_flag + n_fail)
+by_cell(corr, "Corrections in the original study. SIMEX with known reliability is shown in the covariate-error cells, and the corrections with known misclassification probabilities in the misclassification cells. All rows are scored against the sample ATT, including the $\\tau_R$ forms, whose target equals the ATT in these designs. Scoring them against the sample $\\tau_R$ changes no bias by more than $10^{-4}$ and no coverage by more than 0.002 (Appendix \\ref{app:misclass}).")
+```
+
+```{r paired}
+pt <- ex$prod$paired |> filter(basis == "clean") |> arrange(cell_key(cell_id), corrected) |>
+  transmute(Cell = cell_full(cell_id), Contrast = paste(EST_LAB[corrected], "−", EST_LAB[naive]),
+            `Est. diff.` = sprintf("%s (%s)", fmt(estimate_difference, 4), fmt(estimate_difference_mcse, 4)),
+            `$|$err$|$ diff.` = sprintf("%s (%s)", fmt(abs_error_difference, 4), fmt(abs_error_difference_mcse, 4)),
+            `Cov. diff.` = sprintf("%s (%s)", fmt(coverage_difference), fmt(coverage_difference_mcse)))
+by_cell(pt, "Paired contrasts of each correction with its naive estimator on the same replicates of the original study, without solver fallbacks, with paired MCSE in parentheses. Negative $|$error$|$ differences favour the correction.")
+```
+
+```{r ranges}
+rgt <- ex$prod$range |> arrange(cell_key(cell_id), estimator) |>
+  transmute(Cell = cell_full(cell_id), Estimator = EST_LAB[estimator],
+            `Lower-end bias` = fmt(lo_bias), `Upper-end bias` = fmt(hi_bias), Width = fmt(set_width),
+            `Contains ATT` = fmt(set_inclusion),
+            `Interval coverage` = sprintf("%s [%s, %s]", fmt(interval_coverage), fmt(cov_wilson_lo), fmt(cov_wilson_hi)))
+by_cell(rgt, "Reliability-range estimators of the original study (assumed reliability 0.6). The estimated range is summarised by its end-point bias, its width and how often it contains the sample ATT. Its midpoint is not used as an estimator.")
+```
+
+
+## Convergence of the Bayesian causal forest {#app:bcf}
+
+```{r bcf-text, include=FALSE}
+ydc <- c("y_diff__medium__linear__N5000", "y_diff__medium__nonlinear__N5000")
+bprod <- function(cell, col = "coverage") m[m$cell_id == cell & m$estimator == "bcf_did", col]
+```
+
+In the original study the Bayesian causal forest under-covered even without measurement error, with coverage `r fmt(bprod("baseline__none__linear__N5000"))` and `r fmt(bprod("baseline__none__nonlinear__N5000"))` at baseline with $n=5{,}000$. It covered less under differential outcome error, where the target is unchanged (`r fmt(bprod(ydc[1]))` and `r fmt(bprod(ydc[2]))`). That study ran its MCMC as one chain with 250 burn-in iterations.
+
+```{r bcf-app-text, include=FALSE}
+bs_ <- ex$followup$bcf$summary; bp_ <- ex$followup$bcf$paired
+bget <- function(cell, config, col) bs_[bs_$cell == cell & bs_$config == config, col]
+b0 <- "baseline__none__linear__N5000"; bl <- "y_diff__medium__linear__N5000"; bn <- "y_diff__medium__nonlinear__N5000"
+```
+
+The second amendment fixed this pilot before its first replicate. It refits the Bayesian causal forest on replicates 1--20 of three cells of the original study at $n=5{,}000$, using the original seeds, so the data equal those of the original study. The cells are the linear baseline and differential outcome error with linear and with nonlinear trends. Each fit runs four independent chains, each with its own seed, in two configurations, 250 burn-in iterations (the original setting) and 1,000. Both keep 1,000 draws per chain, and everything else is as in the original study (Appendix \ref{app:computation}). The monitored quantity is the treated-average effect in each retained draw. Convergence is summarised by rank-normalised split $\hat R$ (the maximum of the bulk and folded versions) and by bulk and tail effective sample sizes \citep{vehtari2021rank}. Our implementation of these diagnostics passed its checks on independent and AR(1) chains before use. On 200 replicates each, bulk ESS was within 15% of its theoretical value for $\rho=0.9$, and $\hat R$ exceeded 1.1 in every replicate when one chain was shifted.
+
+The pre-specified reading rule was as follows. MCMC length is judged not to explain the under-coverage if, under the original configuration, $\hat R<1.01$ and bulk ESS $>400$ in at least 90% of fits, and the longer burn-in changes the mean posterior SD by less than 5% or by less than two paired MCSEs. Otherwise MCMC length is judged to contribute. Table \ref{tab:bcfpilot} gives the results. The diagnostic condition held in the baseline cell (`r fmt(100 * bget(b0, "prod", "share_both"), 0)`% of fits) but not under differential outcome error (`r fmt(100 * bget(bl, "prod", "share_both"), 0)`% and `r fmt(100 * bget(bn, "prod", "share_both"), 0)`%), so the rule assigns MCMC length a possible role in those two cells. The second condition held in all three cells. The longer burn-in changed the mean posterior SD by `r nm(min(bp_$sd_pct_change), 1)`% to `r nm(max(bp_$sd_pct_change), 1)`% (paired MCSE at most `r fmt(max(bp_$sd_diff_mcse), 4)` on a posterior SD of about 0.06) and the posterior mean by at most `r fmt(max(abs(bp_$mean_diff)), 4)` (paired MCSE at most `r fmt(max(bp_$mean_diff_mcse), 4)`). The longer burn-in also left the diagnostics short of the threshold under differential outcome error (`r fmt(100 * bget(bl, "long", "share_both"), 0)`% and `r fmt(100 * bget(bn, "long", "share_both"), 0)`%). In both configurations, the mean posterior SD was about three quarters of the empirical SD of the 500 original estimates in those cells. With 20 replicates, the coverage figures have MCSE near 0.10 and serve only as a check on direction. Figure \ref{fig:bcftrace} shows the chains for replicate 1. The pilot therefore does not separate slow mixing from posterior concentration as causes of the under-coverage, but it shows that more burn-in, the cheap remedy, does not fix it.
+
+```{r bcfpilot}
+bt <- bs_ |> mutate(Cell = recode(cell, baseline__none__linear__N5000 = "Baseline, linear",
+                                  y_diff__medium__linear__N5000 = "Diff. error, linear",
+                                  y_diff__medium__nonlinear__N5000 = "Diff. error, nonlinear"),
+                    `Burn-in` = ifelse(config == "prod", "250", "1,000"),
+                    `Both (\\%)` = sprintf("%.0f", 100 * share_both),
+                    `Bulk ESS` = sprintf("%.0f (%.0f)", ess_bulk_median, ess_bulk_min),
+                    `Max $\\hat R$` = sprintf("%.2f", rhat_max),
+                    `Post. SD` = sprintf("%.4f", mean_post_sd),
+                    `SD ratio` = sprintf("%.2f", post_sd_over_prod_emp_sd),
+                    Bias = sprintf("%s (%s)", fmt(bias), fmt(bias_mcse)),
+                    Coverage = sprintf("%.2f", coverage), `Chain 1` = sprintf("%.2f", chain1_coverage),
+                    ord = match(cell, c(b0, bl, bn)), ord2 = match(config, c("prod", "long"))) |>
+  arrange(ord, ord2) |>
+  select(Cell, `Burn-in`, `Both (\\%)`, `Bulk ESS`, `Max $\\hat R$`, `Post. SD`, `SD ratio`, Bias, Coverage, `Chain 1`)
+kbl2(bt, font = 6.8, escape = FALSE, align = "llrrrrrrrr",
+     "Convergence pilot for the Bayesian causal forest, 20 replicates per cell, four chains of 1,000 retained draws per fit, $n=5{,}000$. Diff. error is differential outcome error. Both is the share of fits with rank-normalised $\\hat R<1.01$ and bulk ESS $>400$. Bulk ESS gives the median and, in parentheses, the minimum. Post. SD is the mean posterior SD of the treated-average effect from the pooled chains, and SD ratio divides it by the empirical SD of the 500 original estimates of the cell. Bias is against the sample ATT, with MCSE. Coverage is that of the pooled 95\\% credible interval, and Chain 1 that of a normal interval from chain 1 alone (the original setting). Each has MCSE near 0.10.") |>
+  column_spec(1, width = "2.1cm") |> collapse_rows(1, latex_hline = "major", valign = "top")
+```
+
+```{r bcftrace, fig.cap="Convergence pilot for the Bayesian causal forest. Retained draws of the treated-average effect for replicate 1 of each cell, four chains, with 250 (original setting) and 1,000 burn-in iterations.", out.width="100%"}
+knitr::include_graphics("figures/fig_bcf_trace.pdf")
+```
+
+## Second amendment: regression calibration and SIMEX {#app:rc}
+
+```{r rc-checks, include=FALSE}
+rck <- ex$followup$checks$rc; rk <- \(k) rck$value[rck$check == k]
+```
+
+Before the runs, the comparison was checked on one closed-form draw of $n=200{,}000$ with the parametric learner, where each estimate has SD of about 0.005. Regression calibration within groups differed from the ATT by `r nm(rk("rc_group"), 4)`, the estimator on the true covariates by `r nm(rk("latent"), 4)`, and the naive estimator from its target $q(0)$ by `r nm(rk("naive_vs_q0"), 4)`. Pooled calibration reproduced the naive estimate to within $10^{`r ceiling(log10(abs(rk("rc_pooled"))))`}$, as an affine map of the covariates must with a linear-index learner. Table \ref{tab:rcall} reports every cell and Table \ref{tab:rcpaired} the paired contrasts. In the closed-form rows, SIMEX uses cross-fitted calibration with $M=0$. In the original-design rows it is the original SIMEX-lasso, with SIMEX with cross-fitted calibration added in the three cells of the first amendment.
+
+```{r rcall}
+mlab <- c(naive = "Naive", rc_group = "RC, within groups", rc_pooled = "RC, pooled", simex_production = "SIMEX, original",
+          simex_fold = "SIMEX, cross-fitted ($M=0$)", latent = "True covariates")
+rl <- ex$followup$rc$long
+cl_lab <- function(st, ce, le) ifelse(st == "rc_gauss", sprintf("Closed form, $n=%s$, %s", gsub(",", "{,}", big(as.numeric(sub(".*_n", "", ce)))),
+                                      ifelse(le == "glm", "parametric", "lasso")), cell_full(ce))
+rw <- rl |> filter(metric %in% c("bias_att", "emp_sd", "se_ratio", "rmse", "cover_att")) |>
+  mutate(val = case_when(metric == "bias_att" ~ sprintf("%s (%s)", fmt(value, 4), fmt(mcse, 4)),
+                         metric == "cover_att" ~ sprintf("%s [%s, %s]", fmt(value), fmt(wilson_lo), fmt(wilson_hi)),
+                         metric == "se_ratio" ~ fmt(value, 2), TRUE ~ fmt(value, 4))) |>
+  select(study, cell, learner, method, metric, val) |>
+  pivot_wider(names_from = metric, values_from = val) |>
+  mutate(Cell = cl_lab(study, cell, learner), Method = mlab[method],
+         o1 = match(study, c("rc_gauss", "rc_dgp", "rc_xnc")), o2 = match(method, names(mlab))) |>
+  arrange(o1, cell, learner, o2) |>
+  select(Cell, Method, `Bias (MCSE)` = bias_att, `Emp. SD` = emp_sd, `SE/SD` = se_ratio, RMSE = rmse, `Coverage [Wilson]` = cover_att)
+by_cell(rw, "Comparison with regression calibration (RC, second amendment), all cells, 500 replicates each. Bias is against the sample ATT. Original-design cells use the lasso learner. In the cells with differential covariate error, both corrections assume reliability 0.75.")
+```
+
+```{r rcpaired}
+rp <- ex$followup$rc$paired |>
+  transmute(Cell = cl_lab(study, cell, learner),
+            Contrast = con_lab(contrast, c(naive = "Naive", latent = "True covariates", "production SIMEX-lasso" = "SIMEX, original",
+                                           "SIMEX fold (M = 0)" = "SIMEX, cross-fitted ($M=0$)")),
+            `Est. diff.` = sprintf("%s (%s)", fmt(est_diff, 4), fmt(est_diff_mcse, 4)),
+            `$|$err$|$ diff.` = sprintf("%s (%s)", fmt(abs_err_diff, 4), fmt(abs_err_diff_mcse, 4)),
+            `Cov. diff.` = sprintf("%s (%s)", fmt(cover_diff), fmt(cover_diff_mcse)),
+            o1 = match(study, c("rc_gauss", "rc_dgp", "rc_xnc")), k = ifelse(study == "rc_gauss", "", cell_key(cell))) |>
+  arrange(o1, k, Cell) |> select(-o1, -k)
+by_cell(rp, "Comparison with regression calibration, paired contrasts on the same replicates, with paired MCSE in parentheses. Negative $|$error$|$ differences favour the first-named method.")
+```
+
+## Third amendment: covariate shape {#app:shape}
+
+```{r a3all}
+a3lab <- c(naive = "Naive", latent = "True covariates", rc_group = "RC, full-sample", rc_fold = "RC, cross-fitted", simex_fold = "SIMEX, cross-fitted")
+a3cell <- function(st, ce, le) ifelse(st == "shape",
+  sprintf("%s, %s, $n=%s$, %s", ifelse(grepl("^gauss", ce), "Gaussian", "Log-normal"),
+          ifelse(grepl("_quad_", ce), "quadratic", "linear"), gsub(",", "{,}", big(as.numeric(sub(".*_n", "", ce)))),
+          ifelse(le == "glm", "parametric", "lasso")),
+  cell_full(ce))
+aw <- ex$amend3$long |> filter(metric %in% c("bias_att", "rmse", "se_ratio", "se_ratio_fixed", "cover_att", "cover_att_fixedse")) |>
+  mutate(val = case_when(metric == "bias_att" ~ sprintf("%s (%s)", fmt(value, 4), fmt(mcse, 4)),
+                         metric == "cover_att" ~ sprintf("%s [%s, %s]", fmt(value), fmt(wilson_lo), fmt(wilson_hi)),
+                         metric %in% c("se_ratio", "se_ratio_fixed") ~ fmt(value, 2),
+                         metric == "cover_att_fixedse" ~ fmt(value),
+                         TRUE ~ fmt(value, 4))) |>
+  select(study, cell, learner, method, metric, val) |> pivot_wider(names_from = metric, values_from = val) |>
+  mutate(Cell = a3cell(study, cell, learner), Method = a3lab[method],
+         o1 = match(study, c("shape", "rc_dgp")), o2 = match(method, names(a3lab))) |>
+  arrange(o1, desc(learner), cell, o2) |>
+  select(Cell, Method, `Bias (MCSE)` = bias_att, RMSE = rmse, `SE/SD` = se_ratio, `SE/SD, fixed` = se_ratio_fixed,
+         `Coverage [Wilson]` = cover_att, `Cov., fixed SE` = cover_att_fixedse)
+by_cell(aw, "Third amendment, all cells, 500 replicates each. Bias is against the sample ATT. SE/SD and coverage use each method's primary SE, which includes the first-step adjustment for cross-fitted RC and SIMEX and is the DR-DiD SE otherwise. The fixed columns use the SE that treats the calibration as fixed. Original-design cells use the lasso learner and the second amendment's seeds.")
+```
+
+```{r a3paired}
+ap <- ex$amend3$paired |>
+  transmute(Cell = a3cell(study, cell, learner), Contrast = con_lab(contrast, a3lab),
+            `Est. diff.` = sprintf("%s (%s)", fmt(est_diff, 4), fmt(est_diff_mcse, 4)),
+            `$|$err$|$ diff.` = sprintf("%s (%s)", fmt(abs_err_diff, 4), fmt(abs_err_diff_mcse, 4)),
+            `Cov. diff.` = sprintf("%s (%s)", fmt(cover_diff), fmt(cover_diff_mcse)),
+            o1 = match(study, c("shape", "rc_dgp")), lr = learner, ce = cell) |>
+  arrange(o1, desc(lr), ce) |> select(-o1, -lr, -ce)
+by_cell(ap, "Third amendment, paired contrasts on the same replicates, with paired MCSE in parentheses. Negative $|$error$|$ differences favour the first-named method.")
+```
+
+## Fourth and fifth amendments: high reliability and the spline lasso {#app:a45}
+
+```{r a45-text, include=FALSE}
+r389a <- ex$amend4$rep389; k389 <- r389a$fold[which.min(r389a$tau_fold)]
+a45cell <- function(ce, le) sprintf("%s, %s, $n=%s$, %s", ifelse(grepl("^gauss", ce), "Gaussian", "Log-normal"),
+  ifelse(grepl("_quad_", ce), "quadratic", "linear"), gsub(",", "{,}", big(as.numeric(sub(".*_n", "", ce)))),
+  recode(le, glmnet = "lasso", glmnet_ns = "spline lasso", glmnet_nsc = "clamped spline lasso"))
+q9a <- "lnorm_quad_r090_n5000"
+xb <- ex$amend4$extrap; xb <- xb[xb$cell == q9a & xb$learner == "glmnet_ns" & xb$method == "latent", ]
+stopifnot(sum(xb$n_abs_err_gt1[xb$excess_band == "(0,2]"]) == 0)
+```
+
+The fourth amendment has reliability 0.9 and log-normal covariates with skewness 6.2 (Appendix \ref{app:computation}). Table \ref{tab:a45all} reports every cell, and Table \ref{tab:a45tail} gives robust summaries that were computed after the study. In the spline-lasso cell with a quadratic trend, `r ex$amend4$tail$n_abs_err_gt1[ex$amend4$tail$cell == q9a & ex$amend4$tail$learner == "glmnet_ns" & ex$amend4$tail$method == "latent"]` of 500 replicates gave the estimator on the true covariates an error above 1. None of them occurred when the largest $W_1$ in a held-out fold exceeded the largest in its training folds by 2 or less, and `r sum(xb$n_abs_err_gt1[xb$excess_band %in% c("(5,10]", "(10, Inf]")])` occurred when it exceeded it by more than 5. In the worst, replicate 389, one control in a held-out fold had $W_1=`r fmt(r389a$top_w1[r389a$fold == k389], 1)`$ against a training maximum of `r fmt(r389a$train_max_w1[r389a$fold == k389], 1)`, a change in outcome of `r big(round(r389a$top_dY[r389a$fold == k389]))` against a prediction of `r big(round(r389a$top_m0[r389a$fold == k389]))`, a raw propensity of `r fmt(r389a$top_e_raw[r389a$fold == k389], 5)` and a normalised weight of `r fmt(r389a$top_w0_normalised[r389a$fold == k389], 0)`. It contributed `r fmt(r389a$top_contrib_to_tau0[r389a$fold == k389], 0)` to its fold's control term, and the fold's estimate was `r nm(r389a$tau_fold[r389a$fold == k389], 0)`.
+
+```{r a45all}
+a45lab <- c(naive = "Naive", latent = "True covariates", rc_group = "RC, full-sample", rc_fold = "RC, cross-fitted", simex_fold = "SIMEX, cross-fitted")
+a4w <- ex$amend4$long |> filter(metric %in% c("bias_att", "rmse", "se_ratio", "cover_att", "cover_att_M0.05")) |>
+  mutate(val = case_when(metric == "bias_att" ~ sprintf("%s (%s)", fmt(value, 4), fmt(mcse, 4)),
+                         metric == "cover_att" ~ sprintf("%s [%s, %s]", fmt(value), fmt(wilson_lo), fmt(wilson_hi)),
+                         metric == "se_ratio" ~ fmt(value, 2), metric == "rmse" ~ fmt(value, 4), TRUE ~ fmt(value))) |>
+  select(cell, learner, method, metric, val) |> pivot_wider(names_from = metric, values_from = val, values_fill = "--") |>
+  mutate(Cell = a45cell(cell, learner), Method = a45lab[method], o2 = match(method, names(a45lab))) |>
+  arrange(cell, learner, o2) |>
+  select(Cell, Method, `Bias (MCSE)` = bias_att, RMSE = rmse, `SE/SD` = se_ratio, `Coverage [Wilson]` = cover_att,
+         `Cov., $M=0.05$` = `cover_att_M0.05`)
+by_cell(a4w, "Fourth amendment, all cells, reliability 0.9, 500 replicates each. Bias is against the sample ATT, 0.5. SE/SD and coverage use the SE with the first-step adjustment for cross-fitted RC and SIMEX. The last column gives the coverage of interval (5) at $M=0.05$ for SIMEX.")
+```
+
+```{r a45tail}
+tl <- ex$amend4$tail |>
+  mutate(Cell = a45cell(cell, learner), Method = a45lab[method], o2 = match(method, names(a45lab))) |>
+  arrange(cell, learner, o2) |>
+  transmute(Cell, Method, `Mean error` = fmt(mean_err), `Median error` = fmt(median_err), SD = fmt(sd), MAD = fmt(mad),
+            `Errors above 1` = n_abs_err_gt1)
+by_cell(tl, "Fourth amendment, robust summaries computed after the study. Error is the estimate minus the sample ATT. MAD is the median absolute deviation, scaled to the SD under normality.")
+```
+
+The fifth amendment refitted the three spline-lasso cells with each covariate clamped to its training range before the spline basis is evaluated (Table \ref{tab:a5cmp}). Clamping bounds the propensity of a unit outside the training range but not its outcome residual, so the errors above 1 fell but did not disappear. In the linear cell at $n=1{,}000$, the RMSE of the estimator on the true covariates rose from `r fmt(ex$amend5$compare$rmse_old[ex$amend5$compare$cell == "lnorm_linear_r090_n1000" & ex$amend5$compare$method == "latent"])` to `r fmt(ex$amend5$compare$rmse_new[ex$amend5$compare$cell == "lnorm_linear_r090_n1000" & ex$amend5$compare$method == "latent"])`, which is consistent with constant extrapolation being wrong for a linear trend.
+
+```{r a5cmp}
+a5 <- ex$amend5$compare |>
+  mutate(Cell = a45cell(cell, "glmnet_ns"), Method = a45lab[method], o2 = match(method, names(a45lab))) |>
+  arrange(cell, o2) |>
+  transmute(Cell, Method, `Mean error` = sprintf("%s / %s", fmt(mean_err_old), fmt(mean_err_new)),
+            `Median error` = sprintf("%s / %s", fmt(median_err_old), fmt(median_err_new)),
+            RMSE = sprintf("%s / %s", fmt(rmse_old), fmt(rmse_new)),
+            `Errors above 1` = sprintf("%d / %d", n_big_old, n_big_new),
+            Coverage = sprintf("%s / %s", fmt(cover_old), fmt(cover_new)))
+by_cell(a5, "Fifth amendment. Each entry gives the spline lasso of the fourth amendment, then the clamped spline lasso, on the same data and folds, 500 replicates per cell.")
+```

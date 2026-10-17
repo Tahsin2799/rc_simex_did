@@ -1,0 +1,62 @@
+# Related work, numerical checks and protocol deviations {#app:repro}
+
+## Relation to the closest prior work
+
+\begingroup\footnotesize
+
+| Work | Setting | What this paper adds |
+|------------|----------------------|----------------------|
+| \citet{lockwood2015simulation} | SIMEX for regression, IPW and doubly robust estimators of means and ATEs, with the error variance treated as known and bootstrap standard errors | panel DiD, cross-fitting, the first-step adjustment, the worst-case extrapolation bias |
+| \citet{lenis2017doubly} | doubly robust SIMEX for the ATE under mean-reverting error, with validation data | classical error without validation data, the panel ATT |
+| \citet{carroll1996asymptotics} and \citet{apanasovich2009simex} | asymptotic theory of SIMEX in parametric and kernel semiparametric models | the cross-fitted Hajek functional with machine-learned nuisances, the score-function derivative, bias-aware intervals |
+| \citet{chen2026generalized} | generalised SIMEX for parametric M-estimators, with the order of the polynomial growing with a dense grid, and a covariance that is diagonal across noise levels | a fixed quadratic and grid, the sharp worst-case bias $M\kappa(t)$ in the interval, the covariance across noise levels |
+| \citet{xu2024causal} | cross-fitted double machine learning in a partially linear model, with regression calibration fitted in an external validation study | calibration from the same sample on the training folds, within treatment groups and from a reliability, for the DR-DiD functional |
+| \citet{nguyen2020propensity} and \citet{lockwood2016matching} | propensity-score analysis with the posterior mean of a latent confounder given treatment, and matching functions that differ by group | calibration within groups inside DR-DiD, the gap and the bias representation (Proposition \ref{prop:gap}, Corollary \ref{cor:rcbias}) |
+| \citet{nab2021sensitivity} and \citet{sedki2026methods} | comparisons of regression calibration and SIMEX for error in an exposure | a comparison for a confounder in DiD, the population map |
+| \citet{fraser2012regression} | regression calibration with markedly non-Gaussian exposures with many zeros | a measure of that risk under Gaussian error (Proposition \ref{prop:gap}) |
+| \citet{armstrong2018optimal, armstrong2020simple} | bias-aware intervals over a smoothness class | the worst-case bias of SIMEX extrapolation from the Peano kernel |
+| \citet{battistin2014treatment} | small-error expansion of the ATT bias | the exact derivative along the noise path (B.14) |
+| \citet{negi2025misclassified} and \citet{denteh2022misclassification} | DiD with a misclassified treatment | double robustness in the nuisances of the true treatment, and the variance with estimated misclassification probabilities |
+| \citet{chen2025nonparametric} and \citet{chen2026inverse} | machine-learned propensities with a misclassified treatment | none claimed |
+
+Table: Comparison with the closest prior work.
+
+\endgroup
+
+## Numerical checks
+
+Each derivation was checked numerically in designs where the truth is known, and each implementation was checked against the derivations before its study ran (Table \ref{tab:checks}). All computations used R 4.5.2. Data are generated from seeds that depend only on the cell and the replicate, so any replicate can be reproduced on its own. Rerunning the original SIMEX-lasso on three replicates reproduced the saved estimates and standard errors exactly.
+
+\begingroup\footnotesize
+
+| Check | Result |
+|--------------------------------|------------|
+| Doubly robust remainder, the pooled-fold counterexample, the variance under outcome error, the influence function for the sample target | all pass |
+| Extrapolation weights, the pieces and integrals of the Peano kernel, the sharp cubic, the score-function derivative (C.7) against central differences | 19 of 19 pass, derivative errors $<8\times10^{-10}$ |
+| Score equivalence for misclassification, the remainders (D.7)–(D.8), the mixed-sign attenuation, the derivatives in the misclassification probabilities | all pass |
+| Noise-path derivative (B.14) against direct quadrature | errors $<2\times10^{-9}$ |
+| Binary-support counterexample (Appendix \ref{app:binary}) | reproduces $p_0(0)=1.53$ |
+| SIMEX with cross-fitted calibration (algebra, agreement with the closed form at $n=200{,}000$, coverage over 400 replicates, clustered variance) | `r ex$checks$pass` of `r ex$checks$n` pass |
+| Regression calibration with cross-fitted calibration (the map and its preimage, (C.18) against central differences of the refitted outcome regression in 12 directions and three designs at $n=200{,}000$, the SE over 400 replicates of the closed-form design) | `r rck_text()` |
+| Population map (doubled grids, brute-force Monte Carlo with binned regressions, the closed form in the Gaussian designs) | changes $<10^{-4}$, agreement within `r fmt(max(abs(c(ex$popmap$mc$rc_mc - ex$popmap$mc$rc_map, ex$popmap$mc$naive_mc - ex$popmap$mc$naive_map))), 3)` |
+| Bias representation (C.23) against the directly computed bias | agreement $<10^{-14}$ |
+| Estimated gap share against the true share, 20 samples of 3,000 | mean within 0.002 of the truth |
+| Intervals (5) recomputed from the saved estimates and SEs | agreement with the saved intervals $<10^{-8}$ |
+
+Table: Numerical checks of the derivations and of their implementation. \label{tab:checks}
+
+\endgroup
+
+These checks confirm the algebra and the implementation in designs where the truth is known. They do not establish the convergence rates of the learners.
+
+## Protocol deviations
+
+The original 64-cell study ran as specified, and none of its results were changed. Each later study was specified in a dated amendment after the earlier results had been seen. The deviations from these protocols are as follows.
+
+- *Reporting.* After the original study ran, we added bias MCSEs based on the errors, Wilson intervals, separate reporting of the range estimators and bias against the population ATT. No estimate changed.
+- *First amendment*, 6 October 2026, frozen before its first replicate. It adds the revised SIMEX and the closed-form, range, original-design and same-sample studies. The BIHS semi-synthetic study and village-clustered inference were added after launch but before the first replicate. Paired contrasts in the semi-synthetic study, run-time quantiles and median clipping shares were added after its results were seen.
+- *Second amendment*, 8 October 2026. Its design was final before its first replicate ran but was time-stamped about 30 minutes later, after partial results had been seen while the aggregation code was being tested. The design was not changed in between. It adds the convergence pilot for the Bayesian causal forest, the comparison with regression calibration, and the target $\tau_R$ for the R-form misclassification corrections (Appendix \ref{app:misclass}).
+- *Third amendment*, 11 October 2026, frozen before its first replicate. It adds regression calibration with cross-fitted calibration and its variance (Appendix \ref{app:rc-fold}) and the covariate-shape study of Sections \ref{sec:inference} and \ref{sec:accuracy}. Its implementation checks and a two-replicate timing pilot, whose estimates were not summarised, preceded the freeze. The variance decomposition and tail statistics of Section \ref{sec:inference} were computed after its results were seen.
+- *Fourth amendment*, 11 October 2026, frozen before its first replicate. It adds the design at reliability 0.9 with skewness 6.2 and the spline lasso. After the results were seen, the population values of its design were recomputed on a finer grid. The earlier values were 0.01 to 0.025 too low, and in the linear design that motivated the study SIMEX's target stayed the closer one. The tail diagnostics of Appendix \ref{app:a45} were also computed after the results were seen.
+- *Fifth amendment*, 14 October 2026, frozen before its first replicate. It refits the three spline-lasso cells with clamped covariates as a sensitivity analysis.
+- *Post hoc analyses.* The population map of Section \ref{sec:map} with its checks, the estimated gap shares, the intervals with the bias-aware critical value (Section \ref{sec:biasaware}), and the application's estimates for regression calibration and calibration by the posterior mean were computed after all the studies above had been seen.

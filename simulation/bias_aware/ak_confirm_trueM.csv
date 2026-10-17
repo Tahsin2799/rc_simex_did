@@ -1,0 +1,13 @@
+"study","cell","learner","arm","n","M_true","cover_add","cover_ak","width_ratio"
+"gauss_known","gauss_r0.60_n1000","glm","fixed",500,2.32265998462921,1,1,0.986775581925409
+"gauss_known","gauss_r0.60_n1000","glm","fold",500,2.32265998462921,1,1,0.986738234492154
+"gauss_known","gauss_r0.60_n1000","glmnet","fixed",500,2.32265998462921,1,1,0.987073057480743
+"gauss_known","gauss_r0.60_n1000","glmnet","fold",500,2.32265998462921,1,1,0.98702517496415
+"gauss_known","gauss_r0.60_n5000","glm","fixed",500,2.32265998462921,1,1,0.993676556127341
+"gauss_known","gauss_r0.60_n5000","glm","fold",500,2.32265998462921,1,1,0.993656722452193
+"gauss_range","gauss_r0.75_n1000","glm","fixed",500,1.103418923869,1,1,0.955257166415484
+"gauss_range","gauss_r0.75_n1000","glm","fold",500,1.103418923869,1,1,0.955151514564624
+"gauss_range","gauss_r0.75_n1000","glmnet","fixed",500,1.103418923869,1,1,0.956232242702948
+"gauss_range","gauss_r0.75_n1000","glmnet","fold",500,1.103418923869,1,1,0.956213072086677
+"gauss_range","gauss_r0.75_n5000","glm","fixed",500,1.103418923869,1,1,0.976302873292921
+"gauss_range","gauss_r0.75_n5000","glm","fold",500,1.103418923869,1,1,0.976265163847303

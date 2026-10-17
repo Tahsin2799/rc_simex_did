@@ -1,0 +1,13 @@
+"item","value"
+"children",902
+"villages",254
+"covariate columns",16
+"tau (years)",0.25
+"outcome residual sd",1.55466253143683
+"village share of residual variance",0.2
+"nonlinear coefficient",0.388665632859209
+"reliability r0 (log assets, log land)",0.7
+"propensity p01",0.0215417774678694
+"propensity median",0.212157594345323
+"propensity p99",0.647271567829528
+"mean propensity",0.243902439024394

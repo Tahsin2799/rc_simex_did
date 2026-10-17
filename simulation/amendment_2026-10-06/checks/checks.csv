@@ -1,0 +1,51 @@
+"layer","check","discrepancy","tolerance","pass"
+"A","c(-1) on production grid is (36,-8,-27,10)/11",9.99200722162641e-16,1e-12,TRUE
+"A","c(t) reproduces 1, t, t^2 at t = -1.0",4.44089209850063e-15,1e-12,TRUE
+"A","c(t) reproduces 1, t, t^2 at t = -0.4",1.66533453693773e-15,1e-12,TRUE
+"A","c(t) reproduces 1, t, t^2 at t = 0.3",6.66133814775094e-16,1e-12,TRUE
+"A","kappa(-1) = 21/22 on production grid (exact roots)",5.32907051820075e-15,1e-12,TRUE
+"A","kappa(-1.0) exact = numerical, grid (0,0.5,1,2)",1.11022302462516e-16,1e-07,TRUE
+"A","kappa(-0.7) exact = numerical, grid (0,0.5,1,2)",1.11022302462516e-16,1e-07,TRUE
+"A","kappa(-0.4) exact = numerical, grid (0,0.5,1,2)",2.77555756156289e-17,1e-07,TRUE
+"A","kappa(-0.1) exact = numerical, grid (0,0.5,1,2)",6.93889390390723e-18,1e-07,TRUE
+"A","kappa(0.0) exact = numerical, grid (0,0.5,1,2)",5.20417042793042e-18,1e-07,TRUE
+"A","kappa(-1.0) exact = numerical, grid (0,0.25,0.5,1,1.5,2)",4.44089209850063e-16,1e-07,TRUE
+"A","kappa(-0.7) exact = numerical, grid (0,0.25,0.5,1,1.5,2)",1.11022302462516e-16,1e-07,TRUE
+"A","kappa(-0.4) exact = numerical, grid (0,0.25,0.5,1,1.5,2)",5.55111512312578e-17,1e-07,TRUE
+"A","kappa(-0.1) exact = numerical, grid (0,0.25,0.5,1,1.5,2)",6.93889390390723e-17,1e-07,TRUE
+"A","kappa(0.0) exact = numerical, grid (0,0.25,0.5,1,1.5,2)",1.38777878078145e-17,1e-07,TRUE
+"A","Peano identity q2(t) - q(t) for closed-form curve, t = -1.0",6.38378239159465e-15,1e-09,TRUE
+"A","Peano identity q2(t) - q(t) for closed-form curve, t = -0.5",1.73472347597681e-15,1e-09,TRUE
+"A","closed-form extrapolation bias within 21M/22 (excess over bound, clipped at 0)",0,0,TRUE
+"A","K = 1 fold score equals production pooled score (estimate)",0,1e-12,TRUE
+"A","K = 1 fold score equals production pooled score (IF)",0,1e-12,TRUE
+"A","held-out score sums to zero within the fold",3.28159374674009e-13,1e-09,TRUE
+"A","rowwise grid IF averages to zero (fold-normalised)",2.29746777158368e-17,1e-10,TRUE
+"A","coef = L Q",3.02535774210355e-15,1e-12,TRUE
+"A","Q is the mean of its (j, b) fits",0,1e-12,TRUE
+"A","fold calibration = (1 - r) Var(W*) on training rows",0,1e-12,TRUE
+"A","average fold calibration minus s_hat equals mean(h_s) up to O(1/n)",0.000155378685988255,0.005,TRUE
+"A","point SE = sqrt(c' Var(eta) c / n)",2.77555756156289e-17,1e-12,TRUE
+"A","eta = zeta + h_s D'",0,1e-12,TRUE
+"A","singleton clusters reproduce the iid variance",6.50521303491303e-18,1e-15,TRUE
+"A","cluster variance = G/(G-1) sum (S_g - mean S)^2 / n^2",2.77555756156289e-17,1e-15,TRUE
+"A","same seed reproduces the curve exactly",0,0,TRUE
+"A","fixed calibration: eta equals zeta",0,0,TRUE
+"A","range interval contains the estimated range",0,0,TRUE
+"A","numerical range interval inside closed-form conservative one",0,1e-10,TRUE
+"B","Q_hat(lambda=0.0) within 4 SE of closed form",0.532053807440127,4,TRUE
+"B","Q_hat(lambda=0.5) within 4 SE of closed form",0.428464500993882,4,TRUE
+"B","Q_hat(lambda=1.0) within 4 SE of closed form",1.01424253542995,4,TRUE
+"B","Q_hat(lambda=2.0) within 4 SE of closed form",0.388490169636604,4,TRUE
+"B","D_hat[j=1, c=1] within 4 MCSE of closed form",0.544359142265859,4,TRUE
+"B","D_hat[j=2, c=1] within 4 MCSE of closed form",2.05301768541042,4,TRUE
+"B","D_hat[j=3, c=1] within 4 MCSE of closed form",0.770107488626716,4,TRUE
+"B","D_hat[j=1, c=2] within 4 MCSE of closed form",0.756889078360957,4,TRUE
+"B","D_hat[j=2, c=2] within 4 MCSE of closed form",0.467864586979301,4,TRUE
+"B","D_hat[j=3, c=2] within 4 MCSE of closed form",0.77489664811444,4,TRUE
+"C","fixed calibration: cover_q2, Wilson upper >= 0.95",0,0,TRUE
+"C","fixed calibration: cover_tau_Mtrue, Wilson upper >= 0.95",0,0,TRUE
+"C","fixed calibration: band_covers_q2, Wilson upper >= 0.95",0,0,TRUE
+"C","fold calibration: cover_q2, Wilson upper >= 0.95",0,0,TRUE
+"C","fold calibration: cover_tau_Mtrue, Wilson upper >= 0.95",0,0,TRUE
+"C","fold calibration: band_covers_q2, Wilson upper >= 0.95",0,0,TRUE
