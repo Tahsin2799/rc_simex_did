@@ -57,7 +57,7 @@ Three consequences follow. A correct $p_B$ removes the remainder whatever the ou
 
 ## Double robustness in the nuisances of the true treatment {#app:mc-latent}
 
-Define $\tilde A=(B-\alpha_0)/\kappa_\alpha$. It is a moment-correction variable, not a probability. Under (D.1), $E[\tilde A\mid A,X,D]=A$. For candidate latent nuisances $(g,m)$ with $g\le1-\delta_g$,
+Define $\tilde A=(B-\alpha_0)/\kappa_\alpha$, the corrected treatment of \citet[eq.~18]{chen2026inverse}, who uses it in a corrected likelihood for the propensity score, with misclassification probabilities that may depend on the covariates. It is a moment-correction variable, not a probability. Under (D.1), $E[\tilde A\mid A,X,D]=A$. For candidate latent nuisances $(g,m)$ with $g\le1-\delta_g$,
 $$
 T_{\tilde A}(g,m)=\frac1\pi E\Big[\frac{\tilde A-g}{1-g}(D-m)\Big],\qquad T_{\tilde A}(g,m)-\tau=\frac1\pi E\Big[\frac{(e-g)(\mu-m)}{1-g}\Big], \tag{D.8}
 $$

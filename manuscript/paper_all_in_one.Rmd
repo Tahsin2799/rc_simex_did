@@ -1,5 +1,5 @@
 ---
-title: "Regression Calibration and SIMEX for Mismeasured Covariates in Doubly Robust Difference-in-Differences"
+title: "Covariates with Measurement Error in Doubly Robust Difference-in-Differences: Regression Calibration versus SIMEX Method"
 author: "Tahsin Shahriar"
 date: "Version of `r format(Sys.Date(), '%d %B %Y')`"
 abstract: |

@@ -1,4 +1,4 @@
-# Regression calibration and SIMEX for mismeasured covariates in doubly robust difference-in-differences
+# Covariates with measurement error in doubly robust difference-in-differences: regression calibration versus SIMEX method
 
 Code and saved results for the paper of the same title (Tahsin Shahriar). They reproduce every number, table and figure in the paper and its supplement.
 
@@ -16,7 +16,7 @@ simulation/
   population_map/       exact population targets and their checks (Section 4)
   bias_aware/           intervals with the bias-aware critical value, recomputed from the saved estimates (Section 5.6)
 application/
-  R_v2/                 BIHS application: panel construction, analysis, semi-synthetic population, estimated gap shares
+  R_v2/                 BIHS application: panel construction, analysis, semi-synthetic population, estimated relative excess calibration errors
   output/               aggregate tables of the application (no unit-level data)
 manuscript/             sources of the paper and supplement, the exhibit builder and the build scripts
 renv.lock, renv/        the package environment (R 4.5.2)
@@ -76,7 +76,7 @@ Rscript runs/amend5_learner_check.R
 Rscript runs/amend5_study.R                # -> study/
 Rscript runs/amend3_aggregate.R --root=amendment_2026-10-14/study
 Rscript runs/amend5_compare.R              # -> study/amend5_compare.csv
-# Post hoc (population targets, gap share, bias-aware critical value)
+# Post hoc (population targets, relative excess calibration error, bias-aware critical value)
 Rscript runs/population_map.R              # -> population_map/
 Rscript runs/population_map_convergence.R
 Rscript runs/population_map_mc_check.R

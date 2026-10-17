@@ -17,7 +17,7 @@
 | \citet{armstrong2018optimal, armstrong2020simple} | bias-aware intervals over a smoothness class | the worst-case bias of SIMEX extrapolation from the Peano kernel |
 | \citet{battistin2014treatment} | small-error expansion of the ATT bias | the exact derivative along the noise path (B.14) |
 | \citet{negi2025misclassified} and \citet{denteh2022misclassification} | DiD with a misclassified treatment | double robustness in the nuisances of the true treatment, and the variance with estimated misclassification probabilities |
-| \citet{chen2025nonparametric} and \citet{chen2026inverse} | machine-learned propensities with a misclassified treatment | none claimed |
+| \citet{chen2025nonparametric} and \citet{chen2026inverse} | propensity scores and inverse probability weighting with a misclassified treatment, the second through the corrected treatment $\tilde A$ of Appendix \ref{app:mc-latent} | $\tilde A$ inside the DR-DiD functional, where it gives double robustness in the nuisances of the true treatment |
 
 Table: Comparison with the closest prior work.
 
@@ -40,7 +40,7 @@ Each derivation was checked numerically in designs where the truth is known, and
 | Regression calibration with cross-fitted calibration (the map and its preimage, (C.18) against central differences of the refitted outcome regression in 12 directions and three designs at $n=200{,}000$, the SE over 400 replicates of the closed-form design) | `r rck_text()` |
 | Population map (doubled grids, brute-force Monte Carlo with binned regressions, the closed form in the Gaussian designs) | changes $<10^{-4}$, agreement within `r fmt(max(abs(c(ex$popmap$mc$rc_mc - ex$popmap$mc$rc_map, ex$popmap$mc$naive_mc - ex$popmap$mc$naive_map))), 3)` |
 | Bias representation (C.23) against the directly computed bias | agreement $<10^{-14}$ |
-| Estimated gap share against the true share, 20 samples of 3,000 | mean within 0.002 of the truth |
+| Estimated relative excess calibration error against its true value, 20 samples of 3,000 | mean within 0.002 of the truth |
 | Intervals (5) recomputed from the saved estimates and SEs | agreement with the saved intervals $<10^{-8}$ |
 
 Table: Numerical checks of the derivations and of their implementation. \label{tab:checks}
@@ -59,4 +59,4 @@ The original 64-cell study ran as specified, and none of its results were change
 - *Third amendment*, 11 October 2026, frozen before its first replicate. It adds regression calibration with cross-fitted calibration and its variance (Appendix \ref{app:rc-fold}) and the covariate-shape study of Sections \ref{sec:inference} and \ref{sec:accuracy}. Its implementation checks and a two-replicate timing pilot, whose estimates were not summarised, preceded the freeze. The variance decomposition and tail statistics of Section \ref{sec:inference} were computed after its results were seen.
 - *Fourth amendment*, 11 October 2026, frozen before its first replicate. It adds the design at reliability 0.9 with skewness 6.2 and the spline lasso. After the results were seen, the population values of its design were recomputed on a finer grid. The earlier values were 0.01 to 0.025 too low, and in the linear design that motivated the study SIMEX's target stayed the closer one. The tail diagnostics of Appendix \ref{app:a45} were also computed after the results were seen.
 - *Fifth amendment*, 14 October 2026, frozen before its first replicate. It refits the three spline-lasso cells with clamped covariates as a sensitivity analysis.
-- *Post hoc analyses.* The population map of Section \ref{sec:map} with its checks, the estimated gap shares, the intervals with the bias-aware critical value (Section \ref{sec:biasaware}), and the application's estimates for regression calibration and calibration by the posterior mean were computed after all the studies above had been seen.
+- *Post hoc analyses.* The population map of Section \ref{sec:map} with its checks, the estimated relative excess calibration errors, the intervals with the bias-aware critical value (Section \ref{sec:biasaware}), and the application's estimates for regression calibration and calibration by the posterior mean were computed after all the studies above had been seen.
